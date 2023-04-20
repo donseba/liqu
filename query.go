@@ -7,11 +7,14 @@ import (
 )
 
 var (
-	rootQuery    = "SELECT :totalRows: :select: FROM ( :from: ) :as: :join: :where: :groupBy: :orderBy: :limit:"
-	baseQuery    = "SELECT :select: FROM :from: :as: :join: :where: :groupBy: :limit:"
-	lateralQuery = ":direction: JOIN LATERAL ( :baseQuery: ) :as: ON true"
-	sliceQuery   = "SELECT array_to_json(array_agg(q)) FROM ( :query: ) q"
-	singleQuery  = "SELECT row_to_json(q) FROM ( :query: ) q"
+	rootQuery         = "SELECT :totalRows: :select: FROM ( :from: ) :as: :join: :where: :groupBy: :orderBy: :limit:"
+	baseQuery         = "SELECT :select: FROM :from: :as: :join: :where: :groupBy: :limit:"
+	lateralQuery      = ":direction: JOIN LATERAL ( :query: ) :as: ON true"
+	singleQuery       = "SELECT to_jsonb(q) FROM ( :query: ) q"
+	sliceQuery        = "SELECT jsonb_agg(q)) FROM ( :query: ) q"
+	branchSingleQuery = "to_jsonb( :select: ) :as:"
+	branchSliceQuery  = "coalesce(jsonb_agg( :select: ), '[]') :as:"
+	branchAnonQuery   = ":select:"
 )
 
 type (
@@ -20,14 +23,39 @@ type (
 	}
 )
 
-func NewRootQuery() *query {
+func newRootQuery() *query {
 	return &query{
 		q: rootQuery,
 	}
 }
-func NewBaseQuery() *query {
+
+func newBaseQuery() *query {
 	return &query{
 		q: baseQuery,
+	}
+}
+
+func newLateralQuery() *query {
+	return &query{
+		q: lateralQuery,
+	}
+}
+
+func newBranchSingle() *query {
+	return &query{
+		q: branchSingleQuery,
+	}
+}
+
+func newBranchSlice() *query {
+	return &query{
+		q: branchSliceQuery,
+	}
+}
+
+func newBranchAnon() *query {
+	return &query{
+		q: branchAnonQuery,
 	}
 }
 
@@ -39,6 +67,17 @@ func (q *query) setSelect(value string) *query {
 
 func (q *query) setJoin(value string) *query {
 	q.q = strings.Replace(q.q, ":join:", value, 1)
+
+	return q
+}
+func (q *query) setQuery(value string) *query {
+	q.q = strings.Replace(q.q, ":query:", value, 1)
+
+	return q
+}
+
+func (q *query) setDirection(value string) *query {
+	q.q = strings.Replace(q.q, ":direction:", value, 1)
 
 	return q
 }

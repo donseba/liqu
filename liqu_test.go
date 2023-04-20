@@ -6,7 +6,7 @@ import (
 )
 
 type (
-	Category struct {
+	Project struct {
 		ID   int    `db:"id"`
 		Name string `db:"name"`
 	}
@@ -25,11 +25,11 @@ type (
 		ProductTags []ProductTag
 	}
 
-	CategoryTag struct {
-		CategoryID int
-		TagID      int
+	ProjectTag struct {
+		ProjectID int `db:"id_project" json:"-"`
+		TagID     int `db:"id_tag" json:"-"`
 
-		Tags []Tag
+		Tags []Tag `related:"ProjectTags.TagID=Tags.ID" join:"left"`
 	}
 
 	ProductTag struct {
@@ -45,30 +45,18 @@ type (
 	}
 
 	Tree struct {
-		Category Category
+		Project
 
-		CategoryTags     []CategoryTag
-		CategoryProducts []CategoryProduct
-	}
-
-	Single struct {
-		Category Category
-	}
-
-	SingleSlice struct {
-		Category []Category
-	}
-
-	SingleAnonymous struct {
-		Category
+		ProjectTags     []ProjectTag      `related:"ProjectTags.ProjectID=Project.ID" join:"left"`
+		ProjectProducts []CategoryProduct `related:"ProjectProducts.ProjectID=Project.ID"`
 	}
 )
 
-func (m *Category) Table() string {
-	return "category"
+func (m *Project) Table() string {
+	return "project"
 }
 
-func (m *Category) PrimaryKeys() []string {
+func (m *Project) PrimaryKeys() []string {
 	return []string{"ID"}
 }
 
@@ -104,12 +92,12 @@ func (m *ProductTag) PrimaryKeys() []string {
 	return []string{"TagID", "productID"}
 }
 
-func (m *CategoryTag) Table() string {
-	return "category_tag"
+func (m *ProjectTag) Table() string {
+	return "project_tag"
 }
 
-func (m *CategoryTag) PrimaryKeys() []string {
-	return []string{"TagID", "categoryID"}
+func (m *ProjectTag) PrimaryKeys() []string {
+	return []string{"TagID", "ProjectID"}
 }
 
 func TestNew(t *testing.T) {
@@ -124,63 +112,57 @@ func TestNew(t *testing.T) {
 	}
 
 	query, params := li.SQL()
+	//printStructuredSQL(query)
 	t.Log(query)
 	t.Log(params)
 }
 
-func TestSingle(t *testing.T) {
-	tree := make([]Single, 0)
-
-	li := New(context.TODO(), nil)
-
-	err := li.FromSource(&tree)
-	if err != nil {
-		t.Error(err)
-		return
+type (
+	Single struct {
+		Project Project
 	}
 
-	sqlQuery, _ := li.SQL()
-
-	expected := `SELECT count(*) OVER() AS TotalRows, to_jsonb( Category ) AS Category FROM ( SELECT category.id AS "ID" FROM category ) AS Category`
-	if sqlQuery != expected {
-		t.Errorf("expected %s,\ngot:%s", sqlQuery, expected)
-	}
-}
-
-func TestSingleSlice(t *testing.T) {
-	tree := make([]SingleSlice, 0)
-
-	li := New(context.TODO(), nil)
-
-	err := li.FromSource(&tree)
-	if err != nil {
-		t.Error(err)
-		return
+	SingleSlice struct {
+		Project []Project
 	}
 
-	sqlQuery, _ := li.SQL()
-
-	expected := `SELECT count(*) OVER() AS TotalRows, jsonb_agg( Category ) AS Category FROM ( SELECT category.id AS "ID" FROM category ) AS Category`
-	if sqlQuery != expected {
-		t.Errorf("expected %s,\ngot:%s", expected, sqlQuery)
+	SingleAnonymous struct {
+		Project
 	}
-}
+)
 
-func TestSingleAnonymous(t *testing.T) {
-	tree := make([]SingleAnonymous, 0)
-
-	li := New(context.TODO(), nil)
-
-	err := li.FromSource(&tree)
-	if err != nil {
-		t.Error(err)
-		return
+func TestWithoutJoins(t *testing.T) {
+	test := []struct {
+		Model    any
+		Expected string
+	}{
+		{
+			Model:    make([]Single, 0),
+			Expected: `SELECT count(*) OVER() AS TotalRows, to_jsonb( Category ) AS Category FROM ( SELECT category.id AS "ID" FROM category ) AS Category`,
+		},
+		{
+			Model:    make([]SingleSlice, 0),
+			Expected: `SELECT count(*) OVER() AS TotalRows, jsonb_agg( Category ) AS Category FROM ( SELECT category.id AS "ID" FROM category ) AS Category`,
+		},
+		{
+			Model:    make([]SingleAnonymous, 0),
+			Expected: `SELECT count(*) OVER() AS TotalRows, Category."ID" FROM ( SELECT category.id AS "ID" FROM category ) AS Category`,
+		},
 	}
 
-	sqlQuery, _ := li.SQL()
+	for _, te := range test {
+		li := New(context.TODO(), nil)
 
-	expected := `SELECT count(*) OVER() AS TotalRows, Category."ID" FROM ( SELECT category.id AS "ID" FROM category ) AS Category`
-	if sqlQuery != expected {
-		t.Errorf("expected %s,\ngot:%s", expected, sqlQuery)
+		err := li.FromSource(te.Model)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
+		sqlQuery, _ := li.SQL()
+
+		if sqlQuery != te.Expected {
+			t.Errorf("expected %s,\ngot:%s", te.Expected, sqlQuery)
+		}
 	}
 }

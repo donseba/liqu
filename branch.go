@@ -2,18 +2,28 @@ package liqu
 
 type (
 	branch struct {
-		liqu      *Liqu
-		root      *branch
-		slice     bool
-		anonymous bool
-		As        string
-		Name      string
-		source    Source
-		registry  *registry
-		branches  []*branch
-		relations []branchRelation
+		liqu             *Liqu
+		root             *branch
+		slice            bool
+		anonymous        bool
+		As               string
+		Name             string
+		source           Source
+		registry         *registry
+		branches         []*branch
+		relations        []branchRelation
+		selectedFields   []string
+		referencedFields map[string]bool
 
-		selectedFields []string
+		joinDirection string
+		joinFields    []branchJoinField
+		joinBranched  []string
+	}
+
+	branchJoinField struct {
+		Table string
+		Field string
+		As    string
 	}
 
 	branchOptions struct {
@@ -25,6 +35,6 @@ type (
 		operator      string
 		externalTable string
 		externalField string
-		sibling       bool
+		parent        bool
 	}
 )

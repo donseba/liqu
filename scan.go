@@ -1,6 +1,7 @@
 package liqu
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -20,6 +21,7 @@ func (l *Liqu) scan(sourceType reflect.Type, parent *branch) error {
 
 	// if we couldn't cast the sourceType we try to cast the first field
 	if !ok {
+		Debug(source.Table())
 		// first field type
 		fieldType := sourceType.Field(0).Type
 
@@ -59,20 +61,21 @@ func (l *Liqu) scan(sourceType reflect.Type, parent *branch) error {
 		}
 
 		// set the root branch
-		l.tree = branch{
-			liqu:           l,
-			root:           nil,
-			slice:          sourceSlice,
-			anonymous:      anonymous,
-			As:             sourceAs,
-			Name:           sourceName,
-			source:         source,
-			branches:       make([]*branch, 0),
-			selectedFields: primaryKeys,
+		l.tree = &branch{
+			liqu:             l,
+			root:             nil,
+			slice:            sourceSlice,
+			anonymous:        anonymous,
+			As:               sourceAs,
+			Name:             sourceName,
+			source:           source,
+			branches:         make([]*branch, 0),
+			selectedFields:   primaryKeys,
+			referencedFields: make(map[string]bool),
 		}
 
 		// assign the parent and continue with the rest of the fields.
-		parent = &l.tree
+		parent = l.tree
 
 		// build up the registry, so we can reference fields easier as we build up the query a bit later on
 		r := &registry{
@@ -84,13 +87,13 @@ func (l *Liqu) scan(sourceType reflect.Type, parent *branch) error {
 
 		parent.registry = r
 
-		l.registry[parent.Name] = *r
+		l.registry[parent.As] = *r
 	}
 
 	// check the following fields if they are related
 	if sourceType.NumField() >= position {
 		for index := position; index < sourceType.NumField(); index++ {
-			err := l.processField(sourceType.Field(index), parent /*, ""*/)
+			err := l.processField(sourceType.Field(index), parent)
 			if err != nil {
 				return err
 			}
@@ -179,7 +182,7 @@ func (l *Liqu) structFields(source interface{}) StructFieldInfo {
 	return *structFieldInfo
 }
 
-func (l *Liqu) processField(structField reflect.StructField, parent *branch /*, WrapInto string*/) error {
+func (l *Liqu) processField(structField reflect.StructField, parent *branch) error {
 	fieldType := structField.Type
 
 	if fieldType.Kind() == reflect.Slice {
@@ -193,12 +196,7 @@ func (l *Liqu) processField(structField reflect.StructField, parent *branch /*, 
 
 	if fieldType.Kind() == reflect.Struct {
 		for index := 0; index < fieldType.NumField(); index++ {
-			//wrapIntoSub := structField.Name
-			//if WrapInto != "" {
-			//	wrapIntoSub = fmt.Sprintf("%s.%s", WrapInto, wrapIntoSub)
-			//}
-
-			err := l.processField(fieldType.Field(index), parent /*, wrapIntoSub*/)
+			err := l.processField(fieldType.Field(index), parent)
 			if err != nil {
 				return err
 			}
@@ -227,25 +225,31 @@ func (l *Liqu) scanChild(structField reflect.StructField, source Source, parent 
 	}
 
 	var (
-	//liquTag   = structField.Tag.Get("liqu")
-	//dbTag     = structField.Tag.Get("db")
-	//whereTag  = structField.Tag.Get("where")
-	//joinTag   = structField.Tag.Get("join")
-	//limitTag  = structField.Tag.Get("limit")
-	//offsetTag = structField.Tag.Get("offset")
+		joinTag    = structField.Tag.Get("join")
+		relatedTag = structField.Tag.Get("related")
+		//liquTag    = structField.Tag.Get("liqu")
+		//dbTag      = structField.Tag.Get("db")
+		//whereTag   = structField.Tag.Get("where")
+		//limitTag   = structField.Tag.Get("limit")
+		//offsetTag  = structField.Tag.Get("offset")
 	)
 
 	structFields := l.structFields(source)
 	primaryKeys := l.primaryKeys(structFields.fieldDatabase, source)
+	if joinTag == "" {
+		joinTag = "INNER"
+	}
 
 	currentBranch := &branch{
-		liqu:           l,
-		root:           parent,
-		slice:          selectFieldSlice,
-		As:             selectFieldAs,
-		Name:           selectFieldName,
-		source:         source,
-		selectedFields: primaryKeys,
+		liqu:             l,
+		root:             parent,
+		slice:            selectFieldSlice,
+		As:               selectFieldAs,
+		Name:             selectFieldName,
+		source:           source,
+		selectedFields:   primaryKeys,
+		referencedFields: make(map[string]bool),
+		joinDirection:    joinTag,
 	}
 
 	reg := &registry{
@@ -257,11 +261,16 @@ func (l *Liqu) scanChild(structField reflect.StructField, source Source, parent 
 
 	currentBranch.registry = reg
 
-	l.registry[currentBranch.Name] = *reg
+	l.registry[currentBranch.As] = *reg
 
 	parent.branches = append(parent.branches, currentBranch)
 
-	err := l.scan(fieldType, currentBranch)
+	err := l.parseRelated(relatedTag, currentBranch, parent)
+	if err != nil {
+		return err
+	}
+
+	err = l.scan(fieldType, currentBranch)
 	if err != nil {
 		return err
 	}
@@ -281,6 +290,58 @@ func (l *Liqu) primaryKeys(structFields map[string]string, source Source) []stri
 	}
 
 	return out
+}
+
+var relatedRegex = regexp.MustCompile(`([a-zA-Z]+).([a-zA-Z.]+)(=|<>|<=|>=|<|>)([a-zA-Z]+).([a-zA-Z.]+)`)
+
+func (l *Liqu) parseRelated(tag string, branch *branch, parent *branch) error {
+	relations := make([]branchRelation, 0)
+
+	parts := strings.Split(tag, " ")
+	for i := 0; i < len(parts); i++ {
+		if !relatedRegex.MatchString(parts[i]) {
+			continue
+		}
+
+		match := relatedRegex.FindStringSubmatch(parts[i])
+		if len(match) != 6 {
+			continue
+		}
+
+		var (
+			leftTable, leftField, operator, rightTable, rightField = match[1], match[2], match[3], match[4], match[5]
+		)
+
+		// if the current branch is not on the left check if it is on the right and swap it if so
+		if leftTable != branch.As {
+			if rightTable == branch.As {
+				rightTable, rightField, leftTable, leftField = leftTable, leftField, rightTable, rightField
+			} else {
+				return errors.New("[liqu] related expects current node to be either left or right of operator")
+			}
+		}
+
+		relations = append(relations, branchRelation{
+			localField:    leftField,
+			operator:      operator,
+			externalTable: rightTable,
+			externalField: rightField,
+			parent:        rightTable == parent.As,
+		})
+
+		if _, ok := l.registry[rightTable]; !ok {
+			return errors.New(fmt.Sprintf("[liqu] table on the right does not exist. %s", rightTable))
+		}
+
+		// only need to expose it if the request os from a lateral join that is not within the same scope
+		if rightTable != parent.As {
+			Debug(rightTable)
+			l.registry[rightTable].branch.referencedFields[rightField] = true
+		}
+	}
+
+	branch.relations = relations
+	return nil
 }
 
 var (
