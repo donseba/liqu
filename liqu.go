@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"runtime"
 	"strconv"
-	"strings"
 )
 
 var (
@@ -161,48 +160,4 @@ func (l *Liqu) PostProcess(pp string) string {
 	l.paging.TotalPages = int(math.Ceil(float64(l.paging.TotalResults) / float64(l.paging.PerPage)))
 
 	return pp
-}
-
-func printStructuredSQL(sqlQuery string) {
-	// Define the keywords for indentation
-	keywords := []string{"SELECT", "FROM", "LEFT JOIN", "ON", "AS", ")", "(", ","}
-
-	// Replace newline characters with spaces and split the SQL query into words
-	words := strings.Split(strings.ReplaceAll(sqlQuery, "\n", " "), " ")
-
-	indent := 0
-	for _, word := range words {
-		// Check if the word is a keyword
-		isKeyword := false
-		for _, keyword := range keywords {
-			if strings.HasPrefix(strings.ToUpper(word), keyword) {
-				isKeyword = true
-				break
-			}
-		}
-
-		// If the word is a keyword, print it with the current indentation
-		if isKeyword {
-			if strings.HasPrefix(strings.ToUpper(word), "(") || strings.HasPrefix(strings.ToUpper(word), ",") {
-				fmt.Printf("\n%s%s", strings.Repeat("  ", indent), word)
-			} else {
-				fmt.Printf("\n%s%s", strings.Repeat("  ", indent-1), word)
-			}
-
-			// Adjust the indent level based on the keyword
-			if strings.HasPrefix(strings.ToUpper(word), "SELECT") ||
-				strings.HasPrefix(strings.ToUpper(word), "FROM") ||
-				strings.HasPrefix(strings.ToUpper(word), "LEFT JOIN") ||
-				strings.HasPrefix(strings.ToUpper(word), "(") {
-				indent++
-			} else if strings.HasPrefix(strings.ToUpper(word), ")") ||
-				strings.HasPrefix(strings.ToUpper(word), "ON") {
-				indent--
-			}
-		} else {
-			// Otherwise, print the word with a space before it
-			fmt.Printf(" %s", word)
-		}
-	}
-	fmt.Println()
 }

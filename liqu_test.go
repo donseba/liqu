@@ -45,7 +45,7 @@ type (
 	}
 
 	Tree struct {
-		Project
+		Project Project
 
 		ProjectTags []ProjectTag `related:"ProjectTags.ProjectID=Project.ID" join:"left"`
 		//ProjectProducts []CategoryProduct `related:"ProjectProducts.ProjectID=Project.ID"`
@@ -112,7 +112,6 @@ func TestNew(t *testing.T) {
 	}
 
 	query, params := li.SQL()
-	//printStructuredSQL(query)
 	t.Log(query)
 	t.Log(params)
 }

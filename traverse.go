@@ -12,12 +12,16 @@ func (l *Liqu) traverse() error {
 		root.SetTotalRows("count(*) OVER() AS TotalRows,")
 	}
 
+	rootFieldSelect := newBranchAnon()
 	if !l.tree.anonymous {
-		rootSelect := fmt.Sprintf("to_jsonb( :select: ) AS %s", l.tree.As)
 		if l.tree.slice {
-			rootSelect = fmt.Sprintf("jsonb_agg( :select: ) AS %s", l.tree.As)
+			rootFieldSelect = newBranchSlice()
+		} else {
+			rootFieldSelect = newBranchSingle()
 		}
-		root.setSelect(rootSelect)
+		rootFieldSelect.setSelect(l.tree.As).setAs(l.tree.As, fmt.Sprintf(`"%s"`, l.tree.Name))
+	} else {
+		rootFieldSelect.setSelect(strings.Join(l.selectsAsStruct(l.tree), ", "))
 	}
 
 	for _, v := range l.tree.branches {
@@ -33,12 +37,7 @@ func (l *Liqu) traverse() error {
 		setFrom(l.tree.registry.tableName).
 		setSelect(strings.Join(l.selectsWithStructAlias(l.tree), ","))
 
-	var rootSelects []string
-	if l.tree.anonymous {
-		rootSelects = l.selectsAsStruct(l.tree)
-	} else {
-		rootSelects = []string{l.tree.As}
-	}
+	rootSelects := []string{rootFieldSelect.Scrub()}
 
 	for _, v := range l.tree.joinFields {
 		rootSelects = append(rootSelects, fmt.Sprintf(`%s.%s AS "%s"`, v.As, v.Field, v.Field))
@@ -117,7 +116,7 @@ func (l *Liqu) traverseBranch(branch *branch, parent *branch) error {
 		)
 	}
 
-	selectsWithReferences := []string{}
+	selectsWithReferences := make([]string, 0)
 	for k, _ := range branch.referencedFields {
 		selectsWithReferences = append(selectsWithReferences, branch.registry.fieldDatabase[k])
 		groupBy = append(groupBy, branch.registry.fieldDatabase[k])

@@ -21,7 +21,6 @@ func (l *Liqu) scan(sourceType reflect.Type, parent *branch) error {
 
 	// if we couldn't cast the sourceType we try to cast the first field
 	if !ok {
-		Debug(source.Table())
 		// first field type
 		fieldType := sourceType.Field(0).Type
 
