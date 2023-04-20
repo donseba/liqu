@@ -122,22 +122,24 @@ func (q *query) setOrderBy(ob []string) *query {
 	return q
 }
 
-//func (q *query) setLimit(paging *Paging) *query {
-//	if paging == nil {
-//		return strings.Replace(q, ":limit:", "", 1)
-//	}
-//
-//	if paging.Disabled {
-//		return strings.Replace(q, ":limit:", "", 1)
-//	}
-//
-//	offset := 0
-//	if paging.Page > 1 {
-//		offset = (paging.Page - 1) * paging.PerPage
-//	}
-//
-//	return strings.Replace(q, ":limit:", fmt.Sprintf("LIMIT %d OFFSET %d ", paging.PerPage, offset), 1)
-//}
+func (q *query) setLimit(paging *Paging) *query {
+	if paging == nil {
+		return q
+	}
+
+	if paging.Disabled {
+		return q
+	}
+
+	offset := 0
+	if paging.Page > 1 {
+		offset = (paging.Page - 1) * paging.PerPage
+	}
+
+	q.q = strings.Replace(q.q, ":limit:", fmt.Sprintf("LIMIT %d OFFSET %d ", paging.PerPage, offset), 1)
+
+	return q
+}
 
 func (q *query) setAs(this string, that string) *query {
 	as := strings.TrimSpace(this)

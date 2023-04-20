@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"regexp"
 	"runtime"
@@ -30,12 +31,21 @@ type (
 		sourceSlice bool
 		tree        *branch
 		registry    map[string]registry
+		paging      *Paging
 
 		sqlQuery  string
 		sqlParams []interface{}
 	}
 
 	Filters struct {
+	}
+
+	Paging struct {
+		Page         int
+		PerPage      int
+		TotalResults int
+		TotalPages   int
+		Disabled     bool
 	}
 
 	registry struct {
@@ -53,6 +63,11 @@ func New(ctx context.Context, filters *Filters) *Liqu {
 	return &Liqu{
 		ctx:      ctx,
 		registry: make(map[string]registry, 0),
+		paging: &Paging{
+			Page:     DefaultPage,
+			PerPage:  DefaultPerPage,
+			Disabled: false,
+		},
 	}
 }
 
@@ -129,6 +144,10 @@ func (l *Liqu) SQL() (string, []interface{}) {
 	return l.sqlQuery, l.sqlParams
 }
 
+func (l *Liqu) Paging() *Paging {
+	return l.paging
+}
+
 func (l *Liqu) PostProcess(pp string) string {
 	var count int
 
@@ -138,9 +157,8 @@ func (l *Liqu) PostProcess(pp string) string {
 		count, _ = strconv.Atoi(regexp.MustCompile("[0-9]+").FindString(rexMatch[0]))
 	}
 
-	_ = count
-	//l.paging.TotalResults = count
-	//l.paging.TotalPages = int(math.Ceil(float64(l.paging.TotalResults) / float64(l.paging.PerPage)))
+	l.paging.TotalResults = count
+	l.paging.TotalPages = int(math.Ceil(float64(l.paging.TotalResults) / float64(l.paging.PerPage)))
 
 	return pp
 }

@@ -225,7 +225,7 @@ func (l *Liqu) scanChild(structField reflect.StructField, source Source, parent 
 	}
 
 	var (
-		joinTag    = structField.Tag.Get("join")
+		joinTag    = strings.ToUpper(structField.Tag.Get("join"))
 		relatedTag = structField.Tag.Get("related")
 		//liquTag    = structField.Tag.Get("liqu")
 		//dbTag      = structField.Tag.Get("db")

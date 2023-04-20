@@ -47,8 +47,8 @@ type (
 	Tree struct {
 		Project
 
-		ProjectTags     []ProjectTag      `related:"ProjectTags.ProjectID=Project.ID" join:"left"`
-		ProjectProducts []CategoryProduct `related:"ProjectProducts.ProjectID=Project.ID"`
+		ProjectTags []ProjectTag `related:"ProjectTags.ProjectID=Project.ID" join:"left"`
+		//ProjectProducts []CategoryProduct `related:"ProjectProducts.ProjectID=Project.ID"`
 	}
 )
 

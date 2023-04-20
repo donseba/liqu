@@ -29,10 +29,9 @@ func (l *Liqu) traverse() error {
 
 	root.setJoin(strings.Join(l.tree.joinBranched, " "))
 
-	base := newBaseQuery()
-	base.setFrom(l.tree.registry.tableName)
-
-	base.setSelect(strings.Join(l.selectsWithStructAlias(l.tree), ","))
+	base := newBaseQuery().
+		setFrom(l.tree.registry.tableName).
+		setSelect(strings.Join(l.selectsWithStructAlias(l.tree), ","))
 
 	var rootSelects []string
 	if l.tree.anonymous {
@@ -47,7 +46,8 @@ func (l *Liqu) traverse() error {
 
 	root.setSelect(strings.Join(rootSelects, ",")).
 		setFrom(base.Scrub()).
-		setAs(l.tree.As, l.tree.registry.tableName)
+		setAs(l.tree.As, l.tree.registry.tableName).
+		setLimit(l.paging)
 
 	l.sqlQuery = root.Scrub()
 
