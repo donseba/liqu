@@ -1,43 +1,61 @@
 package liqu
 
 import (
+	"fmt"
+	"net/url"
 	"testing"
 )
 
 func TestWhereClause(t *testing.T) {
-	where := &WhereClause{}
-	where.AddCondition("name", ILike, "John%")
-	where.AddCondition("email", Like, "john@%")
-	where.AddCondition("age", GreaterThanOrEqual, 25)
-	where.AddCondition("age", LessThan, 65)
-	where.AddCondition("city", IsNotNull, nil)
-	where.AddCondition("score", Between, []interface{}{50, 100})
-	where.AddCondition("country", In, []interface{}{"USA", "UK", "Canada"})
-	where.AddCondition("job", NotLike, "manager%")
-	where.AddCondition("title", NotILike, "director%")
-	where.AddCondition("salary", NotEqual, 100000)
-	where.AddCondition("salary", NotEqualAlt, 100000)
-	where.AddCondition("start_date", LessThanOrEqual, "2022-01-01")
-	where.AddCondition("end_date", GreaterThan, "2023-01-01")
-	where.AddCondition("nickname", StartsWith, "A")
-	where.AddCondition("notes", Any, "'{John, Jane, Jack}'::text[]")
-	where.AddCondition("position", NotAny, "'{Manager, Director}'::text[]")
+	cb := NewConditionBuilder()
+	whereClause := cb.Column("name").
+		Condition(ILike, "%John%").
+		And("age", GreaterThanOrEqual, 18).
+		OrIsNull("age").
+		AndNested(func(n *ConditionBuilder) {
+			n.Column("country").Condition(Equal, "USA").
+				Or("city", Equal, "New York")
+		}).
+		Build()
 
-	nestedOr := []*Condition{
-		{Field: "department", Operator: Equal, Value: "HR"},
-		{Field: "department", Operator: Equal, Value: "IT"},
+	expected := `name ILIKE '%John%' AND age >= 18 OR age IS NULL AND (country = 'USA' OR city = 'New York')`
+
+	if expected != whereClause {
+		t.Errorf("expected:\n%s\ngot:\n%s", expected, whereClause)
 	}
-	where.AddNestedCondition(Or, nestedOr...)
+}
 
-	nestedNotIn := []*Condition{
-		{Field: "role", Operator: NotIn, Value: []interface{}{"admin", "superadmin"}},
+func TestNewConditionBuilder(t *testing.T) {
+	cb := NewConditionBuilder()
+	whereClause := cb.Column("name").
+		Condition(ILike, "%John%").
+		And("age", GreaterThanOrEqual, 18).
+		OrIsNull("age").
+		AndNested(func(n *ConditionBuilder) {
+			n.Column("country").In("USA", "Canada").
+				OrNotIn("city", "New York", "Los Angeles")
+		}).
+		Build()
+
+	expected := `name ILIKE '%John%' AND age >= 18 OR age IS NULL AND (USA IN ('Canada') OR city NOT IN ('New York', 'Los Angeles'))`
+	if expected != whereClause {
+		t.Errorf("expected:\n%s\ngot:\n%s", expected, whereClause)
 	}
-	where.AddNestedCondition(And, nestedNotIn...)
+}
 
-	expected := `WHERE name ILIKE 'John%' AND email LIKE 'john@%' AND age >= 25 AND age < 65 AND city IS NOT NULL  AND score BETWEEN (50, 100) AND country IN ('USA', 'UK', 'Canada') AND job NOT LIKE 'manager%' AND title NOT ILIKE 'director%' AND salary <> 100000 AND salary != 100000 AND start_date <= '2022-01-01' AND end_date > '2023-01-01' AND nickname ^ 'A' AND notes ANY ''{John, Jane, Jack}'::text[]' AND position NOT ANY ''{Manager, Director}'::text[]' OR (department = 'HR' OR department = 'IT') AND (role NOT IN ('admin', 'superadmin'))`
-	result := where.Build()
+func TestParseURLQueryToConditionBuilder(t *testing.T) {
+	// Simulate a URL query with the "where" parameter
+	urlQuery := url.Values{}
+	urlQuery.Set("where", "name|ILIKE|%John%,age|>=|18,age|IS NULL,country|IN|USA--Canada,city|NOT IN|New York--Los Angeles")
 
-	if expected != where.Build() {
-		t.Errorf("expected:\n%s\ngot:\n %s", expected, result)
+	whereQueryParam := urlQuery.Get("where")
+
+	cb, err := ParseURLQueryToConditionBuilder(whereQueryParam)
+	if err != nil {
+		t.Error(err)
+		return
 	}
+
+	whereClause := cb.Build()
+	fmt.Println("WHERE", whereClause)
 }

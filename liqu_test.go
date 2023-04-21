@@ -137,15 +137,15 @@ func TestWithoutJoins(t *testing.T) {
 	}{
 		{
 			Model:    make([]Single, 0),
-			Expected: `SELECT count(*) OVER() AS TotalRows, to_jsonb( Category ) AS Category FROM ( SELECT category.id AS "ID" FROM category ) AS Category`,
+			Expected: `SELECT count(*) OVER() AS TotalRows, to_jsonb( Project ) AS Project FROM ( SELECT project.id AS "ID" FROM project ) AS Project LIMIT 25 OFFSET 0`,
 		},
 		{
 			Model:    make([]SingleSlice, 0),
-			Expected: `SELECT count(*) OVER() AS TotalRows, jsonb_agg( Category ) AS Category FROM ( SELECT category.id AS "ID" FROM category ) AS Category`,
+			Expected: `SELECT count(*) OVER() AS TotalRows, coalesce(jsonb_agg( Project ), '[]') AS Project FROM ( SELECT project.id AS "ID" FROM project ) AS Project LIMIT 25 OFFSET 0`,
 		},
 		{
 			Model:    make([]SingleAnonymous, 0),
-			Expected: `SELECT count(*) OVER() AS TotalRows, Category."ID" FROM ( SELECT category.id AS "ID" FROM category ) AS Category`,
+			Expected: `SELECT count(*) OVER() AS TotalRows, Project."ID" FROM ( SELECT project.id AS "ID" FROM project ) AS Project LIMIT 25 OFFSET 0`,
 		},
 	}
 
@@ -161,7 +161,7 @@ func TestWithoutJoins(t *testing.T) {
 		sqlQuery, _ := li.SQL()
 
 		if sqlQuery != te.Expected {
-			t.Errorf("expected %s,\ngot:%s", te.Expected, sqlQuery)
+			t.Errorf("expected:\n%s,\ngot:\n%s", te.Expected, sqlQuery)
 		}
 	}
 }
