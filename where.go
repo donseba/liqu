@@ -3,6 +3,7 @@ package liqu
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 )
 
@@ -40,12 +41,16 @@ func (o Operator) String() string {
 type ConditionBuilder struct {
 	column     string
 	conditions []string
+	args       []any
+	counter    int
 }
 
 // NewConditionBuilder initializes and returns a new ConditionBuilder
 func NewConditionBuilder() *ConditionBuilder {
 	return &ConditionBuilder{
 		conditions: []string{},
+		args:       []any{},
+		counter:    0,
 	}
 }
 
@@ -59,13 +64,26 @@ func (cb *ConditionBuilder) Column(column string) *ConditionBuilder {
 func (cb *ConditionBuilder) Condition(op Operator, value interface{}) *ConditionBuilder {
 	var condition string
 
-	switch v := value.(type) {
-	case nil:
+	if value != nil && reflect.TypeOf(value).Kind() == reflect.Slice {
+		slice, ok := reflect.ValueOf(value).Interface().([]string)
+		if !ok {
+			panic("value not a []string")
+		}
+
+		var values []any
+		for _, v := range slice {
+			values = append(values, any(v))
+		}
+
+		return cb.multiValueCondition(cb.column, op, values)
+	}
+
+	if value == nil {
 		condition = fmt.Sprintf("%s %s", cb.column, op)
-	case string:
-		condition = fmt.Sprintf("%s %s '%s'", cb.column, op, v)
-	default:
-		condition = fmt.Sprintf("%s %s %v", cb.column, op, v)
+	} else {
+		cb.args = append(cb.args, value)
+		cb.counter++
+		condition = fmt.Sprintf("%s %s $%d", cb.column, op, cb.counter)
 	}
 
 	cb.conditions = append(cb.conditions, condition)
@@ -99,7 +117,7 @@ func (cb *ConditionBuilder) AndIsNull(column string) *ConditionBuilder {
 // AndIsNotNull adds an AND condition with the IS NOT NULL operator
 func (cb *ConditionBuilder) AndIsNotNull(column string) *ConditionBuilder {
 	if len(cb.conditions) > 0 {
-		cb.conditions = append(cb.conditions, "AND")
+		cb.conditions = append(cb.conditions, And.String())
 	}
 	return cb.Column(column).Condition(IsNotNull, nil)
 }
@@ -107,7 +125,7 @@ func (cb *ConditionBuilder) AndIsNotNull(column string) *ConditionBuilder {
 // OrIsNull adds an OR condition with the IS NULL operator
 func (cb *ConditionBuilder) OrIsNull(column string) *ConditionBuilder {
 	if len(cb.conditions) > 0 {
-		cb.conditions = append(cb.conditions, "OR")
+		cb.conditions = append(cb.conditions, Or.String())
 	}
 	return cb.Column(column).Condition(IsNull, nil)
 }
@@ -115,7 +133,7 @@ func (cb *ConditionBuilder) OrIsNull(column string) *ConditionBuilder {
 // OrIsNotNull adds an OR condition with the IS NOT NULL operator
 func (cb *ConditionBuilder) OrIsNotNull(column string) *ConditionBuilder {
 	if len(cb.conditions) > 0 {
-		cb.conditions = append(cb.conditions, "OR")
+		cb.conditions = append(cb.conditions, Or.String())
 	}
 	return cb.Column(column).Condition(IsNotNull, nil)
 }
@@ -134,12 +152,16 @@ func (cb *ConditionBuilder) OrNested(fn func(*ConditionBuilder)) *ConditionBuild
 
 // Nested adds a nested set of conditions using the provided function
 func (cb *ConditionBuilder) Nested(fn func(*ConditionBuilder)) *ConditionBuilder {
-	nestedCb := NewConditionBuilder()
+	nestedCb := NewConditionBuilder().setCounter(cb.counter)
+
 	fn(nestedCb)
+
 	nestedConditions := nestedCb.Build()
+	nestedArgs := nestedCb.Args()
 
 	if len(nestedConditions) > 0 {
 		cb.conditions = append(cb.conditions, fmt.Sprintf("(%s)", nestedConditions))
+		cb.args = append(cb.args, nestedArgs...)
 	}
 
 	return cb
@@ -221,17 +243,15 @@ func (cb *ConditionBuilder) AndNotAny(column string, values ...interface{}) *Con
 }
 
 func (cb *ConditionBuilder) multiValueCondition(column string, op Operator, values []interface{}) *ConditionBuilder {
-	valueStrings := make([]string, len(values))
-	for i, value := range values {
-		switch v := value.(type) {
-		case string:
-			valueStrings[i] = fmt.Sprintf("'%s'", v)
-		default:
-			valueStrings[i] = fmt.Sprintf("%v", v)
-		}
+	placeholders := make([]string, len(values))
+	for i := range values {
+		placeholders[i] = fmt.Sprintf("$%d", len(cb.args)+i+1)
 	}
-	condition := fmt.Sprintf("%s %s (%s)", column, op, strings.Join(valueStrings, ", "))
+
+	condition := fmt.Sprintf("%s %s (%s)", column, op, strings.Join(placeholders, ", "))
 	cb.conditions = append(cb.conditions, condition)
+	cb.args = append(cb.args, values...)
+	cb.counter += len(values)
 	return cb
 }
 
@@ -240,51 +260,104 @@ func (cb *ConditionBuilder) Build() string {
 	return strings.Join(cb.conditions, " ")
 }
 
+func (cb *ConditionBuilder) Args() []interface{} {
+	return cb.args
+}
+
 func ParseURLQueryToConditionBuilder(query string) (*ConditionBuilder, error) {
+	cb := NewConditionBuilder()
+	return parseNestedConditions(query, cb, And)
+}
+
+func parseNestedConditions(query string, cb *ConditionBuilder, outerOperator Operator) (*ConditionBuilder, error) {
 	parts := strings.Split(query, ",")
 
-	cb := NewConditionBuilder()
+	for i := 0; i < len(parts); i++ {
+		part := parts[i]
 
-	for _, part := range parts {
 		element := strings.Split(part, "|")
 
-		column := element[0]
-		operator := Operator(element[1])
+		if strings.HasPrefix(part, "(") {
+			nestedOperator := Operator(element[0][1:])
+			if nestedOperator != And && nestedOperator != Or {
+				return nil, errors.New("invalid nested operator")
+			}
 
-		switch operator {
-		case Equal, NotEqual, NotEqualAlt, LessThan, LessThanOrEqual, GreaterThan, GreaterThanOrEqual, Like, ILike, NotLike, NotILike, StartsWith:
-			if len(element) < 3 {
-				return nil, errors.New("invalid query format")
+			i++
+			nestedQuery := ""
+			nestedCount := 1
+
+			for ; i < len(parts) && nestedCount > 0; i++ {
+				if strings.HasPrefix(parts[i], "(") {
+					nestedCount++
+				} else if strings.HasSuffix(parts[i], ")") {
+					nestedCount--
+				}
+				nestedQuery += parts[i] + ","
 			}
-			value := element[2]
-			cb.And(column, operator, value)
-		case In, NotIn, Any, NotAny:
-			if len(element) < 3 {
-				return nil, errors.New("invalid query format")
-			}
-			values := strings.Split(element[2], "--")
-			interfaceValues := make([]interface{}, len(values))
-			for i, v := range values {
-				interfaceValues[i] = v
-			}
-			if operator == In {
-				cb.AndIn(column, interfaceValues...)
-			} else if operator == NotIn {
-				cb.AndNotIn(column, interfaceValues...)
-			} else if operator == Any {
-				cb.AndAny(column, interfaceValues...)
+
+			// Remove trailing comma
+			nestedQuery = strings.TrimSuffix(nestedQuery, ",")
+
+			if nestedCount != 0 {
+				return nil, errors.New("unbalanced parentheses")
 			} else {
-				cb.AndNotAny(column, interfaceValues...)
+				i--
 			}
-		case IsNull, IsNotNull:
-			if len(element) != 2 {
-				return nil, errors.New("invalid query format")
+
+			// Remove the last closing parenthesis
+			nestedQuery = strings.TrimSuffix(nestedQuery, ")")
+
+			var err error
+			if outerOperator == And {
+				cb.AndNested(func(nestedCB *ConditionBuilder) {
+					_, err = parseNestedConditions(nestedQuery, nestedCB, nestedOperator)
+				})
+			} else {
+				cb.OrNested(func(nestedCB *ConditionBuilder) {
+					_, err = parseNestedConditions(nestedQuery, nestedCB, nestedOperator)
+				})
 			}
-			cb.And(column, operator, nil)
-		default:
-			return nil, errors.New("unsupported operator")
+			if err != nil {
+				return nil, fmt.Errorf("[liqu] error in nested query: %s", err.Error())
+			}
+		} else {
+			if len(element) < 2 {
+				return nil, fmt.Errorf("invalid query format: %s", part)
+			}
+
+			column := element[0]
+			operator := Operator(element[1])
+
+			if len(element) == 3 {
+				var value interface{}
+				value = element[2]
+				if strings.Contains(element[2], "--") {
+					value = strings.Split(element[2], "--")
+				} else {
+					value = element[2]
+				}
+
+				if outerOperator == And {
+					cb.And(column, operator, value)
+				} else {
+					cb.Or(column, operator, value)
+				}
+			} else {
+				if outerOperator == And {
+					cb.And(column, operator, nil)
+				} else {
+					cb.Or(column, operator, nil)
+				}
+			}
 		}
 	}
 
 	return cb, nil
+}
+
+func (cb *ConditionBuilder) setCounter(c int) *ConditionBuilder {
+	cb.counter = c
+
+	return cb
 }
