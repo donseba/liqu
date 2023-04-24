@@ -111,8 +111,8 @@ func TestNew(t *testing.T) {
 		return
 	}
 
-	query, params := li.SQL()
-	t.Log(query)
+	sql, params := li.SQL()
+	t.Log(sql)
 	t.Log(params)
 }
 

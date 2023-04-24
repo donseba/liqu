@@ -18,8 +18,7 @@ func TestWhereClause(t *testing.T) {
 		}).
 		Build()
 
-	expected := `name ILIKE '%John%' AND age >= 18 OR age IS NULL AND (country = 'USA' OR city = 'New York')`
-
+	expected := `name ILIKE $1 AND age >= $2 OR age IS NULL AND (country = $3 OR city = $4)`
 	if expected != whereClause {
 		t.Errorf("expected:\n%s\ngot:\n%s", expected, whereClause)
 	}
@@ -32,12 +31,13 @@ func TestNewConditionBuilder(t *testing.T) {
 		And("age", GreaterThanOrEqual, 18).
 		OrIsNull("age").
 		AndNested(func(n *ConditionBuilder) {
-			n.Column("country").In("USA", "Canada").
+			n.In("country", "USA", "Canada").
 				OrNotIn("city", "New York", "Los Angeles")
 		}).
+		And("number_seven", Equal, 7).
 		Build()
 
-	expected := `name ILIKE '%John%' AND age >= 18 OR age IS NULL AND (USA IN ('Canada') OR city NOT IN ('New York', 'Los Angeles'))`
+	expected := `name ILIKE $1 AND age >= $2 OR age IS NULL AND (country IN ($3, $4) OR city NOT IN ($5, $6)) AND number_seven = $7`
 	if expected != whereClause {
 		t.Errorf("expected:\n%s\ngot:\n%s", expected, whereClause)
 	}
@@ -57,8 +57,12 @@ func TestParseURLQueryToConditionBuilder(t *testing.T) {
 	}
 
 	whereClause := cb.Build()
-	fmt.Println("WHERE", whereClause)
+	expected := `name ILIKE $1 AND age >= $2 AND age IS NULL AND country IN ($3, $4) AND city NOT IN ($5, $6)`
+	if expected != whereClause {
+		t.Errorf("expected:\n%s\ngot:\n%s", expected, whereClause)
+	}
 }
+
 func TestParseURLQueryToConditionBuilderNestedOR(t *testing.T) {
 	// Simulate a URL query with the "where" parameter
 	urlQuery := url.Values{}

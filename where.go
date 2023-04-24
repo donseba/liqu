@@ -141,6 +141,7 @@ func (cb *ConditionBuilder) OrIsNotNull(column string) *ConditionBuilder {
 // AndNested adds a nested set of AND conditions using the provided function
 func (cb *ConditionBuilder) AndNested(fn func(*ConditionBuilder)) *ConditionBuilder {
 	cb.conditions = append(cb.conditions, And.String())
+
 	return cb.Nested(fn)
 }
 
@@ -153,7 +154,6 @@ func (cb *ConditionBuilder) OrNested(fn func(*ConditionBuilder)) *ConditionBuild
 // Nested adds a nested set of conditions using the provided function
 func (cb *ConditionBuilder) Nested(fn func(*ConditionBuilder)) *ConditionBuilder {
 	nestedCb := NewConditionBuilder().setCounter(cb.counter)
-
 	fn(nestedCb)
 
 	nestedConditions := nestedCb.Build()
@@ -164,7 +164,7 @@ func (cb *ConditionBuilder) Nested(fn func(*ConditionBuilder)) *ConditionBuilder
 		cb.args = append(cb.args, nestedArgs...)
 	}
 
-	return cb
+	return cb.setCounter(nestedCb.counter)
 }
 
 // In, NotIn, Any, and NotAny methods with a variable number of arguments
@@ -245,13 +245,14 @@ func (cb *ConditionBuilder) AndNotAny(column string, values ...interface{}) *Con
 func (cb *ConditionBuilder) multiValueCondition(column string, op Operator, values []interface{}) *ConditionBuilder {
 	placeholders := make([]string, len(values))
 	for i := range values {
-		placeholders[i] = fmt.Sprintf("$%d", len(cb.args)+i+1)
+		cb.counter++
+		placeholders[i] = fmt.Sprintf("$%d", cb.counter)
 	}
 
 	condition := fmt.Sprintf("%s %s (%s)", column, op, strings.Join(placeholders, ", "))
 	cb.conditions = append(cb.conditions, condition)
 	cb.args = append(cb.args, values...)
-	cb.counter += len(values)
+
 	return cb
 }
 
