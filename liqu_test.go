@@ -11,18 +11,11 @@ type (
 		Name string `db:"name"`
 	}
 
-	CategoryProduct struct {
+	CategoryProject struct {
 		CategoryID int
-		productID  int
+		ProjectID  int
 
-		Products []Product
-	}
-
-	Product struct {
-		ID   int    `db:"id"`
-		Name string `db:"name"`
-
-		ProductTags []ProductTag
+		Project []Project
 	}
 
 	ProjectTag struct {
@@ -30,13 +23,6 @@ type (
 		TagID     int `db:"id_tag" json:"-"`
 
 		Tags []Tag `related:"ProjectTags.TagID=Tags.ID" join:"left"`
-	}
-
-	ProductTag struct {
-		productID int
-		TagID     int
-
-		Tags []Tag
 	}
 
 	Tag struct {
@@ -47,8 +33,8 @@ type (
 	Tree struct {
 		Project Project
 
-		ProjectTags []ProjectTag `related:"ProjectTags.ProjectID=Project.ID" join:"left"`
-		//ProjectProducts []CategoryProduct `related:"ProjectProducts.ProjectID=Project.ID"`
+		ProjectTags []ProjectTag `related:"ProjectTags.ProjectID=Project.ID" join:"left" limit:"1" offset:"0"`
+		//ProjectCategories []CategoryProject `related:"ProjectCategories.ProjectID=Project.ID"`
 	}
 )
 
@@ -60,14 +46,6 @@ func (m *Project) PrimaryKeys() []string {
 	return []string{"ID"}
 }
 
-func (m *Product) Table() string {
-	return "product"
-}
-
-func (m *Product) PrimaryKeys() []string {
-	return []string{"ID"}
-}
-
 func (m *Tag) Table() string {
 	return "tag"
 }
@@ -76,20 +54,12 @@ func (m *Tag) PrimaryKeys() []string {
 	return []string{"ID"}
 }
 
-func (m *CategoryProduct) Table() string {
-	return "category_product"
+func (m *CategoryProject) Table() string {
+	return "category_project"
 }
 
-func (m *CategoryProduct) PrimaryKeys() []string {
-	return []string{"CategoryID", "productID"}
-}
-
-func (m *ProductTag) Table() string {
-	return "product_tag"
-}
-
-func (m *ProductTag) PrimaryKeys() []string {
-	return []string{"TagID", "productID"}
+func (m *CategoryProject) PrimaryKeys() []string {
+	return []string{"CategoryID", "ProjectID"}
 }
 
 func (m *ProjectTag) Table() string {
@@ -164,4 +134,31 @@ func TestWithoutJoins(t *testing.T) {
 			t.Errorf("expected:\n%s,\ngot:\n%s", te.Expected, sqlQuery)
 		}
 	}
+}
+
+func TestWithJoins(t *testing.T) {
+
+}
+
+func TestWithWhere(t *testing.T) {
+	filters := &Filters{
+		Page:    1,
+		PerPage: 25,
+		Where:   "Project.Name|ILIKE|John,Tags.Name|=|tagName",
+	}
+
+	li := New(context.TODO(), filters)
+
+	tree := make([]Tree, 0)
+
+	err := li.FromSource(tree)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	sqlQuery, sqlParams := li.SQL()
+
+	t.Log(sqlQuery)
+	t.Log(sqlParams)
 }

@@ -43,6 +43,7 @@ type ConditionBuilder struct {
 	conditions []string
 	args       []any
 	counter    int
+	liqu       *Liqu
 }
 
 // NewConditionBuilder initializes and returns a new ConditionBuilder
@@ -83,7 +84,12 @@ func (cb *ConditionBuilder) Condition(op Operator, value interface{}) *Condition
 	} else {
 		cb.args = append(cb.args, value)
 		cb.counter++
-		condition = fmt.Sprintf("%s %s $%d", cb.column, op, cb.counter)
+		if cb.liqu != nil {
+			cb.liqu.sqlParams = append(cb.liqu.sqlParams, value)
+			condition = fmt.Sprintf("%s %s $%d", cb.column, op, len(cb.liqu.sqlParams))
+		} else {
+			condition = fmt.Sprintf("%s %s $%d", cb.column, op, cb.counter)
+		}
 	}
 
 	cb.conditions = append(cb.conditions, condition)
@@ -96,6 +102,16 @@ func (cb *ConditionBuilder) And(column string, op Operator, value interface{}) *
 		cb.conditions = append(cb.conditions, And.String())
 	}
 	return cb.Column(column).Condition(op, value)
+}
+
+func (cb *ConditionBuilder) AndRaw(raw string) *ConditionBuilder {
+	if len(cb.conditions) > 0 {
+		cb.conditions = append(cb.conditions, And.String())
+	}
+
+	cb.conditions = append(cb.conditions, raw)
+
+	return cb
 }
 
 // Or adds an OR condition with the provided column, operator, and value
@@ -153,7 +169,7 @@ func (cb *ConditionBuilder) OrNested(fn func(*ConditionBuilder)) *ConditionBuild
 
 // Nested adds a nested set of conditions using the provided function
 func (cb *ConditionBuilder) Nested(fn func(*ConditionBuilder)) *ConditionBuilder {
-	nestedCb := NewConditionBuilder().setCounter(cb.counter)
+	nestedCb := NewConditionBuilder().setCounter(cb.counter).setLiqu(cb.liqu)
 	fn(nestedCb)
 
 	nestedConditions := nestedCb.Build()
@@ -167,7 +183,6 @@ func (cb *ConditionBuilder) Nested(fn func(*ConditionBuilder)) *ConditionBuilder
 	return cb.setCounter(nestedCb.counter)
 }
 
-// In, NotIn, Any, and NotAny methods with a variable number of arguments
 func (cb *ConditionBuilder) In(column string, values ...interface{}) *ConditionBuilder {
 	return cb.multiValueCondition(column, In, values)
 }
@@ -184,7 +199,6 @@ func (cb *ConditionBuilder) NotAny(column string, values ...interface{}) *Condit
 	return cb.multiValueCondition(column, NotAny, values)
 }
 
-// OrIn, OrNotIn, OrAny, and OrNotAny methods
 func (cb *ConditionBuilder) OrIn(column string, values ...interface{}) *ConditionBuilder {
 	if len(cb.conditions) > 0 {
 		cb.conditions = append(cb.conditions, Or.String())
@@ -213,7 +227,6 @@ func (cb *ConditionBuilder) OrNotAny(column string, values ...interface{}) *Cond
 	return cb.NotAny(column, values...)
 }
 
-// AndIn, AndNotIn, AndAny, and AndNotAny methods
 func (cb *ConditionBuilder) AndIn(column string, values ...interface{}) *ConditionBuilder {
 	if len(cb.conditions) > 0 {
 		cb.conditions = append(cb.conditions, And.String())
@@ -263,6 +276,18 @@ func (cb *ConditionBuilder) Build() string {
 
 func (cb *ConditionBuilder) Args() []interface{} {
 	return cb.args
+}
+
+func (cb *ConditionBuilder) setCounter(c int) *ConditionBuilder {
+	cb.counter = c
+
+	return cb
+}
+
+func (cb *ConditionBuilder) setLiqu(liqu *Liqu) *ConditionBuilder {
+	cb.liqu = liqu
+
+	return cb
 }
 
 func ParseURLQueryToConditionBuilder(query string) (*ConditionBuilder, error) {
@@ -357,8 +382,122 @@ func parseNestedConditions(query string, cb *ConditionBuilder, outerOperator Ope
 	return cb, nil
 }
 
-func (cb *ConditionBuilder) setCounter(c int) *ConditionBuilder {
-	cb.counter = c
+func (l *Liqu) parseURLQuery() error {
+	var where string
+	if l.filters != nil {
+		where = l.filters.Where
+	}
 
-	return cb
+	return l.parseNestedConditions(where, l.tree.where, And)
+}
+
+func (l *Liqu) parseNestedConditions(query string, cb *ConditionBuilder, outerOperator Operator) error {
+	if strings.TrimSpace(query) == "" {
+		return nil
+	}
+
+	parts := strings.Split(query, ",")
+
+	for i := 0; i < len(parts); i++ {
+		part := parts[i]
+
+		element := strings.Split(part, "|")
+
+		if strings.HasPrefix(part, "(") {
+			nestedOperator := Operator(element[0][1:])
+			if nestedOperator != And && nestedOperator != Or {
+				return errors.New("invalid nested operator")
+			}
+
+			i++
+			nestedQuery := ""
+			nestedCount := 1
+
+			for ; i < len(parts) && nestedCount > 0; i++ {
+				if strings.HasPrefix(parts[i], "(") {
+					nestedCount++
+				} else if strings.HasSuffix(parts[i], ")") {
+					nestedCount--
+				}
+				nestedQuery += parts[i] + ","
+			}
+
+			// Remove trailing comma
+			nestedQuery = strings.TrimSuffix(nestedQuery, ",")
+
+			if nestedCount != 0 {
+				return errors.New("unbalanced parentheses")
+			} else {
+				i--
+			}
+
+			// Remove the last closing parenthesis
+			nestedQuery = strings.TrimSuffix(nestedQuery, ")")
+
+			var err error
+			if outerOperator == And {
+				cb.AndNested(func(nestedCB *ConditionBuilder) {
+					err = l.parseNestedConditions(nestedQuery, nestedCB, nestedOperator)
+				})
+			} else {
+				cb.OrNested(func(nestedCB *ConditionBuilder) {
+					err = l.parseNestedConditions(nestedQuery, nestedCB, nestedOperator)
+				})
+			}
+			if err != nil {
+				return fmt.Errorf("[liqu] error in nested query: %s", err.Error())
+			}
+		} else {
+			if len(element) < 2 {
+				return fmt.Errorf("invalid query format: %s", part)
+			}
+
+			var (
+				model  string
+				field  string
+				column string
+			)
+
+			if strings.Contains(element[0], ".") {
+				el := strings.Split(element[0], ".")
+				model = el[0]
+				field = el[1]
+			} else {
+				model = l.tree.as
+				field = element[0]
+			}
+
+			var ok bool
+			if column, ok = l.registry[model].fieldDatabase[field]; !ok {
+				return fmt.Errorf("invalid search field %s", element[0])
+			}
+			column = fmt.Sprintf("%s.%s", l.registry[model].tableName, column)
+
+			operator := Operator(element[1])
+
+			if len(element) == 3 {
+				var value interface{}
+				value = element[2]
+				if strings.Contains(element[2], "--") {
+					value = strings.Split(element[2], "--")
+				} else {
+					value = element[2]
+				}
+
+				if outerOperator == And {
+					l.registry[model].branch.where.And(column, operator, value)
+				} else {
+					l.registry[model].branch.where.Or(column, operator, value)
+				}
+			} else {
+				if outerOperator == And {
+					l.registry[model].branch.where.And(column, operator, nil)
+				} else {
+					l.registry[model].branch.where.Or(column, operator, nil)
+				}
+			}
+		}
+	}
+
+	return nil
 }

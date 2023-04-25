@@ -19,7 +19,7 @@ func (l *Liqu) traverse() error {
 		} else {
 			rootFieldSelect = newBranchSingle()
 		}
-		rootFieldSelect.setSelect(l.tree.As).setAs(l.tree.As, fmt.Sprintf(`"%s"`, l.tree.Name))
+		rootFieldSelect.setSelect(l.tree.as).setAs(l.tree.as, fmt.Sprintf(`"%s"`, l.tree.name))
 	} else {
 		rootFieldSelect.setSelect(strings.Join(l.selectsAsStruct(l.tree), ", "))
 	}
@@ -40,13 +40,14 @@ func (l *Liqu) traverse() error {
 	rootSelects := []string{rootFieldSelect.Scrub()}
 
 	for _, v := range l.tree.joinFields {
-		rootSelects = append(rootSelects, fmt.Sprintf(`%s.%s AS "%s"`, v.As, v.Field, v.Field))
+		rootSelects = append(rootSelects, fmt.Sprintf(`%s.%s AS "%s"`, v.as, v.field, v.field))
 	}
 
 	root.setSelect(strings.Join(rootSelects, ",")).
 		setFrom(base.Scrub()).
-		setAs(l.tree.As, l.tree.registry.tableName).
-		setLimit(l.paging)
+		setAs(l.tree.as, l.tree.registry.tableName).
+		setLimit(l.paging).
+		setWhere(l.tree.where.Build())
 
 	l.sqlQuery = root.Scrub()
 
@@ -62,7 +63,7 @@ func (l *Liqu) traverseBranch(branch *branch, parent *branch) error {
 
 	var (
 		selects = make([]string, 0)
-		wheres  = make([]string, 0)
+		//wheres  = make([]string, 0)
 		groupBy = make([]string, 0)
 	)
 
@@ -77,9 +78,9 @@ func (l *Liqu) traverseBranch(branch *branch, parent *branch) error {
 	}
 
 	parent.joinFields = append(parent.joinFields, branchJoinField{
-		Table: branch.source.Table(),
-		Field: branch.As,
-		As:    branch.As,
+		table: branch.source.Table(),
+		field: branch.as,
+		as:    branch.as,
 	})
 
 	for _, v := range branch.branches {
@@ -90,30 +91,28 @@ func (l *Liqu) traverseBranch(branch *branch, parent *branch) error {
 	}
 
 	for _, v := range branch.joinFields {
-		selects = append(selects, fmt.Sprintf(`'%s', %s.%s`, v.Field, v.As, v.Field))
+		selects = append(selects, fmt.Sprintf(`'%s', %s.%s`, v.field, v.as, v.field))
 	}
 
-	branchFieldSelect.setSelect(fmt.Sprintf("jsonb_build_object( %s )", strings.Join(selects, ", "))).setAs(branch.As, branch.Name)
+	branchFieldSelect.setSelect(fmt.Sprintf("jsonb_build_object( %s )", strings.Join(selects, ", "))).setAs(branch.as, branch.name)
 
 	for _, v := range branch.relations {
 		externalField := l.registry[v.externalTable].fieldDatabase[v.externalField]
 		externalTable := l.registry[v.externalTable].tableName
 		if v.parent {
-			if l.tree.As == v.externalTable {
+			if l.tree.as == v.externalTable {
 				externalField = fmt.Sprintf(`"%s"`, v.externalField)
 			}
 		} else {
 			externalTable = v.externalTable
 		}
 
-		wheres = append(wheres,
-			fmt.Sprintf("%s %s %s.%s",
-				l.registry[branch.As].fieldDatabase[v.localField],
-				v.operator,
-				externalTable,
-				externalField,
-			),
-		)
+		branch.where.AndRaw(fmt.Sprintf("%s %s %s.%s",
+			l.registry[branch.as].fieldDatabase[v.localField],
+			v.operator,
+			externalTable,
+			externalField,
+		))
 	}
 
 	selectsWithReferences := make([]string, 0)
@@ -126,12 +125,22 @@ func (l *Liqu) traverseBranch(branch *branch, parent *branch) error {
 
 	base.setSelect(strings.Join(selectsWithReferences, ","))
 	base.setJoin(strings.Join(branch.joinBranched, " "))
-	base.setWhere(strings.Join(wheres, " AND "))
+	base.setWhere(branch.where.Build())
 	base.setGroupBy(groupBy)
+
+	if branch.limit != nil {
+		paging := &Paging{
+			PerPage: *branch.limit,
+		}
+		if branch.offset == nil {
+			paging.Page = *branch.offset
+		}
+		base.setLimit(paging)
+	}
 
 	parent.joinBranched = append(
 		parent.joinBranched,
-		newLateralQuery().setQuery(base.Scrub()).setDirection(branch.joinDirection).setAs(branch.As, branch.Name).Scrub(),
+		newLateralQuery().setQuery(base.Scrub()).setDirection(branch.joinDirection).setAs(branch.as, branch.name).Scrub(),
 	)
 
 	return nil
@@ -141,7 +150,7 @@ func (l *Liqu) selectsAsStruct(branch *branch) []string {
 	var out []string
 
 	for _, field := range branch.selectedFields {
-		out = append(out, fmt.Sprintf(`%s."%s"`, branch.Name, field))
+		out = append(out, fmt.Sprintf(`%s."%s"`, branch.name, field))
 	}
 
 	return out
@@ -151,7 +160,7 @@ func (l *Liqu) selectsAsObjectPair(branch *branch) []string {
 	var out []string
 
 	for _, field := range branch.selectedFields {
-		out = append(out, fmt.Sprintf(`'%s'`, field), fmt.Sprintf(`%s.%s`, branch.source.Table(), l.registry[branch.As].fieldDatabase[field]))
+		out = append(out, fmt.Sprintf(`'%s'`, field), fmt.Sprintf(`%s.%s`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field]))
 	}
 
 	return out
@@ -161,7 +170,7 @@ func (l *Liqu) selectsWithStructAlias(branch *branch) []string {
 	var out []string
 
 	for _, field := range branch.selectedFields {
-		out = append(out, fmt.Sprintf(`%s.%s AS "%s"`, branch.source.Table(), l.registry[branch.As].fieldDatabase[field], field))
+		out = append(out, fmt.Sprintf(`%s.%s AS "%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field], field))
 	}
 
 	return out

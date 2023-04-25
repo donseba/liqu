@@ -31,12 +31,17 @@ type (
 		tree        *branch
 		registry    map[string]registry
 		paging      *Paging
+		filters     *Filters
 
 		sqlQuery  string
 		sqlParams []interface{}
 	}
 
 	Filters struct {
+		Page          int
+		PerPage       int
+		DisablePaging bool
+		Where         string
 	}
 
 	Paging struct {
@@ -50,22 +55,33 @@ type (
 	registry struct {
 		fieldTypes    map[string]reflect.Type
 		fieldDatabase map[string]string
-
-		//// SubQueryFields
-		//SubQueryField map[string]string
-		tableName string
-		branch    *branch
+		fieldSearch   map[string]interface{}
+		tableName     string
+		branch        *branch
 	}
 )
 
 func New(ctx context.Context, filters *Filters) *Liqu {
+	var (
+		page     = DefaultPage
+		perPage  = DefaultPerPage
+		disabled = false
+	)
+
+	if filters != nil {
+		page = filters.Page
+		perPage = filters.PerPage
+		disabled = filters.DisablePaging
+	}
+
 	return &Liqu{
 		ctx:      ctx,
 		registry: make(map[string]registry, 0),
+		filters:  filters,
 		paging: &Paging{
-			Page:     DefaultPage,
-			PerPage:  DefaultPerPage,
-			Disabled: false,
+			Page:     page,
+			PerPage:  perPage,
+			Disabled: disabled,
 		},
 	}
 }
@@ -94,6 +110,11 @@ func (l *Liqu) FromSource(source interface{}) error {
 	l.sourceSlice = sourceSlice
 
 	err := l.scan(l.sourceType, nil)
+	if err != nil {
+		return err
+	}
+
+	err = l.parseURLQuery()
 	if err != nil {
 		return err
 	}

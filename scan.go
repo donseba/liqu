@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -65,10 +66,11 @@ func (l *Liqu) scan(sourceType reflect.Type, parent *branch) error {
 			root:             nil,
 			slice:            sourceSlice,
 			anonymous:        anonymous,
-			As:               sourceAs,
-			Name:             sourceName,
+			as:               sourceAs,
+			name:             sourceName,
 			source:           source,
 			branches:         make([]*branch, 0),
+			where:            NewConditionBuilder().setLiqu(l),
 			selectedFields:   primaryKeys,
 			referencedFields: make(map[string]bool),
 		}
@@ -80,13 +82,14 @@ func (l *Liqu) scan(sourceType reflect.Type, parent *branch) error {
 		r := &registry{
 			fieldTypes:    structFields.fieldTypes,
 			fieldDatabase: structFields.fieldDatabase,
+			fieldSearch:   make(map[string]interface{}),
 			branch:        parent,
 			tableName:     source.Table(),
 		}
 
 		parent.registry = r
 
-		l.registry[parent.As] = *r
+		l.registry[parent.as] = *r
 	}
 
 	// check the following fields if they are related
@@ -229,9 +232,26 @@ func (l *Liqu) scanChild(structField reflect.StructField, source Source, parent 
 		//liquTag    = structField.Tag.Get("liqu")
 		//dbTag      = structField.Tag.Get("db")
 		//whereTag   = structField.Tag.Get("where")
-		//limitTag   = structField.Tag.Get("limit")
-		//offsetTag  = structField.Tag.Get("offset")
+		limitTag  = structField.Tag.Get("limit")
+		offsetTag = structField.Tag.Get("offset")
 	)
+
+	var (
+		limit  *int
+		offset *int
+	)
+
+	if limitTag != "" {
+		if val, ok := strconv.Atoi(limitTag); ok == nil {
+			limit = &val
+		}
+	}
+
+	if offsetTag != "" {
+		if val, ok := strconv.Atoi(offsetTag); ok == nil {
+			offset = &val
+		}
+	}
 
 	structFields := l.structFields(source)
 	primaryKeys := l.primaryKeys(structFields.fieldDatabase, source)
@@ -243,8 +263,11 @@ func (l *Liqu) scanChild(structField reflect.StructField, source Source, parent 
 		liqu:             l,
 		root:             parent,
 		slice:            selectFieldSlice,
-		As:               selectFieldAs,
-		Name:             selectFieldName,
+		as:               selectFieldAs,
+		name:             selectFieldName,
+		where:            NewConditionBuilder().setLiqu(l),
+		limit:            limit,
+		offset:           offset,
 		source:           source,
 		selectedFields:   primaryKeys,
 		referencedFields: make(map[string]bool),
@@ -256,11 +279,12 @@ func (l *Liqu) scanChild(structField reflect.StructField, source Source, parent 
 		fieldDatabase: structFields.fieldDatabase,
 		branch:        currentBranch,
 		tableName:     source.Table(),
+		fieldSearch:   make(map[string]interface{}),
 	}
 
 	currentBranch.registry = reg
 
-	l.registry[currentBranch.As] = *reg
+	l.registry[currentBranch.as] = *reg
 
 	parent.branches = append(parent.branches, currentBranch)
 
@@ -312,8 +336,8 @@ func (l *Liqu) parseRelated(tag string, branch *branch, parent *branch) error {
 		)
 
 		// if the current branch is not on the left check if it is on the right and swap it if so
-		if leftTable != branch.As {
-			if rightTable == branch.As {
+		if leftTable != branch.as {
+			if rightTable == branch.as {
 				rightTable, rightField, leftTable, leftField = leftTable, leftField, rightTable, rightField
 			} else {
 				return errors.New("[liqu] related expects current node to be either left or right of operator")
@@ -325,7 +349,7 @@ func (l *Liqu) parseRelated(tag string, branch *branch, parent *branch) error {
 			operator:      operator,
 			externalTable: rightTable,
 			externalField: rightField,
-			parent:        rightTable == parent.As,
+			parent:        rightTable == parent.as,
 		})
 
 		if _, ok := l.registry[rightTable]; !ok {
@@ -333,7 +357,7 @@ func (l *Liqu) parseRelated(tag string, branch *branch, parent *branch) error {
 		}
 
 		// only need to expose it if the request os from a lateral join that is not within the same scope
-		if rightTable != parent.As {
+		if rightTable != parent.as {
 			Debug(rightTable)
 			l.registry[rightTable].branch.referencedFields[rightField] = true
 		}

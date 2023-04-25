@@ -6,9 +6,12 @@ type (
 		root             *branch
 		slice            bool
 		anonymous        bool
-		As               string
-		Name             string
+		as               string
+		name             string
+		where            *ConditionBuilder
 		source           Source
+		limit            *int
+		offset           *int
 		registry         *registry
 		branches         []*branch
 		relations        []branchRelation
@@ -21,13 +24,9 @@ type (
 	}
 
 	branchJoinField struct {
-		Table string
-		Field string
-		As    string
-	}
-
-	branchOptions struct {
-		Where string
+		table string
+		field string
+		as    string
 	}
 
 	branchRelation struct {
