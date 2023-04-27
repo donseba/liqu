@@ -36,4 +36,12 @@ type (
 		externalField string
 		parent        bool
 	}
+
+	joinOperator string
+)
+
+const (
+	leftJoin  joinOperator = "LEFT"
+	rightJoin joinOperator = "RIGHT"
+	fullJoin  joinOperator = "FULL"
 )

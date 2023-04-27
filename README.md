@@ -1,20 +1,24 @@
-
 # liqu
+
 - is short for *List Query*
-- transforms structs into sql queries
-- provides searchability & pagination
-- is build to work with `postgres`
+- transforms nested structs into sql queries
+- provides search & pagination
+- is build to work with `postgres` and relies heavy on `json` & `outer join`
 
 ## Interface
+
 all structs that represent a table should inherit the Source interface
+
 ```go
 Source interface {  
     Table() string  
     PrimaryKeys() []string  
 }
 ```
+
 like so:
-```go 
+
+```go
 type Article struct {  
     ID       int    `db:"id"`  
     Title    string `db:"title"`  
@@ -32,6 +36,7 @@ func (*Article) PrimaryKeys() []string {
 ```
 
 ## Example
+
 ```go
 package main
 
@@ -39,15 +44,17 @@ import (
 	"context"
 	"github.com/donseba/liqu"
 	"log"
+	"time"
 )
 
-type(
+type (
 	Article struct {
-		ID         int    `db:"id"`
-		Title      string `db:"title"`
-		Content    string `db:"content"`
-		AuthorID   int    `db:"author_id"`
-		CategoryID int    `db:"category_id"`
+		ID         int       `db:"id"`
+		Title      string    `db:"title"`
+		Content    string    `db:"content"`
+		Date       time.Time `db:"date"`
+		AuthorID   int       `db:"author_id"`
+		CategoryID int       `db:"category_id"`
 	}
 
 	Author struct {
@@ -59,17 +66,18 @@ type(
 		ID   int    `db:"id"`
 		Name string `db:"name"`
 	}
-	
+
 	ArticleList struct {
 		Article  Article
 		Author   Author   `join:"right" related:"Author.ID=Article.AuthorID"`
 		Category Category `join:"left" related:"Category.ID=Article.CategoryID"`
 	}
-	
-	//CategoryList struct {
-	//	Category Category
-	//	Articles Article  `join:"left" related:"Articles.CategoryID=Category.ID"`
-    //}
+
+	// CategoryList is a list of categories with the last 5 articles
+	CategoryList struct {
+		Category Category
+		Articles []Article `join:"left" related:"Articles.CategoryID=Category.ID" limit:"5" offset:"0" order:"Date|DESC"`
+	}
 )
 
 func main() {
@@ -97,7 +105,9 @@ func main() {
 	liqu.Debug(paging)
 }
 ```
-which results in the following base query: 
+
+which results in the following base query:
+
 ```postgresql
  SELECT    Count(*) over()     AS totalrows,
            To_jsonb( article ) AS article,
@@ -120,3 +130,11 @@ left join  lateral
 ON         TRUE limit 25 offset 0
 ```
 
+## TODO
+
+- [ ]  CTE
+- [ ]  Order by
+- [ ]  Specify fields to select, add option to default to all fields
+- [ ]  Aggregate functions like SUM, AVG, MIN, MAX
+- [ ]  subquery
+- [ ]  tests
