@@ -47,7 +47,8 @@ func (l *Liqu) traverse() error {
 		setFrom(base.Scrub()).
 		setAs(l.tree.as, l.tree.registry.tableName).
 		setLimit(l.paging).
-		setWhere(l.tree.where.Build())
+		setWhere(l.tree.where.Build()).
+		setOrderBy(l.tree.order.Build())
 
 	l.sqlQuery = root.Scrub()
 
@@ -123,10 +124,11 @@ func (l *Liqu) traverseBranch(branch *branch, parent *branch) error {
 
 	selectsWithReferences = append(selectsWithReferences, branchFieldSelect.Scrub())
 
-	base.setSelect(strings.Join(selectsWithReferences, ","))
-	base.setJoin(strings.Join(branch.joinBranched, " "))
-	base.setWhere(branch.where.Build())
-	base.setGroupBy(groupBy)
+	base.setSelect(strings.Join(selectsWithReferences, ",")).
+		setJoin(strings.Join(branch.joinBranched, " ")).
+		setWhere(branch.where.Build()).
+		setOrderBy(branch.order.Build()).
+		setGroupBy(groupBy)
 
 	if branch.limit != nil {
 		paging := &Paging{

@@ -71,6 +71,7 @@ func (l *Liqu) scan(sourceType reflect.Type, parent *branch) error {
 			source:           source,
 			branches:         make([]*branch, 0),
 			where:            NewConditionBuilder().setLiqu(l),
+			order:            NewOrderBuilder().setLiqu(l),
 			selectedFields:   primaryKeys,
 			referencedFields: make(map[string]bool),
 		}
@@ -229,11 +230,12 @@ func (l *Liqu) scanChild(structField reflect.StructField, source Source, parent 
 	var (
 		joinTag    = strings.ToUpper(structField.Tag.Get("join"))
 		relatedTag = structField.Tag.Get("related")
+		limitTag   = structField.Tag.Get("limit")
+		offsetTag  = structField.Tag.Get("offset")
 		//liquTag    = structField.Tag.Get("liqu")
 		//dbTag      = structField.Tag.Get("db")
 		//whereTag   = structField.Tag.Get("where")
-		limitTag  = structField.Tag.Get("limit")
-		offsetTag = structField.Tag.Get("offset")
+		//orderByTag = structField.Tag.Get("order_by")
 	)
 
 	var (
@@ -266,6 +268,7 @@ func (l *Liqu) scanChild(structField reflect.StructField, source Source, parent 
 		as:               selectFieldAs,
 		name:             selectFieldName,
 		where:            NewConditionBuilder().setLiqu(l),
+		order:            NewOrderBuilder().setLiqu(l),
 		limit:            limit,
 		offset:           offset,
 		source:           source,

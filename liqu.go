@@ -42,6 +42,7 @@ type (
 		PerPage       int
 		DisablePaging bool
 		Where         string
+		OrderBy       string
 	}
 
 	Paging struct {
@@ -114,7 +115,7 @@ func (l *Liqu) FromSource(source interface{}) error {
 		return err
 	}
 
-	err = l.parseURLQuery()
+	err = l.parseFilters()
 	if err != nil {
 		return err
 	}
@@ -181,4 +182,62 @@ func (l *Liqu) PostProcess(pp string) string {
 	l.paging.TotalPages = int(math.Ceil(float64(l.paging.TotalResults) / float64(l.paging.PerPage)))
 
 	return pp
+}
+
+func ParseUrlValuesToFilters(values map[string]string) (*Filters, error) {
+	filters := &Filters{
+		Page:    DefaultPage,
+		PerPage: DefaultPerPage,
+	}
+
+	if whereQuery, ok := values["where"]; ok {
+		filters.Where = whereQuery
+	}
+
+	if orderQuery, ok := values["order"]; ok {
+		filters.OrderBy = orderQuery
+	}
+
+	if pageQuery, ok := values["page"]; ok {
+		pageInt, err := strconv.Atoi(pageQuery)
+		if err != nil {
+			return filters, err
+		}
+
+		filters.Page = pageInt
+	}
+
+	if perPageQuery, ok := values["per_page"]; ok {
+		perPageInt, err := strconv.Atoi(perPageQuery)
+		if err != nil {
+			return filters, err
+		}
+
+		filters.PerPage = perPageInt
+	}
+
+	return filters, nil
+}
+
+func (l *Liqu) parseFilters() error {
+	var (
+		where string
+		order string
+	)
+	if l.filters != nil {
+		where = l.filters.Where
+		order = l.filters.OrderBy
+	}
+
+	err := l.parseNestedConditions(where, l.tree.where, And)
+	if err != nil {
+		return err
+	}
+
+	err = l.parseOrderBy(order, l.tree.order)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

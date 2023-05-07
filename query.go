@@ -8,7 +8,7 @@ import (
 
 var (
 	rootQuery         = "SELECT :totalRows: :select: FROM ( :from: ) :as: :join: :where: :groupBy: :orderBy: :limit:"
-	baseQuery         = "SELECT :select: FROM :from: :as: :join: :where: :groupBy: :limit:"
+	baseQuery         = "SELECT :select: FROM :from: :as: :join: :where: :groupBy: :orderBy: :limit:"
 	lateralQuery      = ":direction: JOIN LATERAL ( :query: ) :as: ON true"
 	singleQuery       = "SELECT to_jsonb(q) FROM ( :query: ) q"
 	sliceQuery        = "SELECT jsonb_agg(q)) FROM ( :query: ) q"
@@ -111,10 +111,10 @@ func (q *query) setGroupBy(groupBy []string) *query {
 	return q
 }
 
-func (q *query) setOrderBy(ob []string) *query {
+func (q *query) setOrderBy(ob string) *query {
 	str := ""
-	if len(ob) > 0 {
-		str = "ORDER BY " + strings.Join(ob, ", ")
+	if ob != "" {
+		str = fmt.Sprintf("ORDER BY %s", ob)
 	}
 
 	q.q = strings.Replace(q.q, ":orderBy:", str, 1)

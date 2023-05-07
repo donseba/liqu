@@ -133,8 +133,10 @@ ON         TRUE limit 25 offset 0
 ## TODO
 
 - [ ]  CTE
-- [ ]  Order by
+- [x]  Order by
 - [ ]  Specify fields to select, add option to default to all fields
 - [ ]  Aggregate functions like SUM, AVG, MIN, MAX
-- [ ]  subquery
+- [ ]  sub query support into a single field
+- [ ]  protected order by
+- [ ]  protected where clause
 - [ ]  tests

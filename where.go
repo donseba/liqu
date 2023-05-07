@@ -382,15 +382,6 @@ func parseNestedConditions(query string, cb *ConditionBuilder, outerOperator Ope
 	return cb, nil
 }
 
-func (l *Liqu) parseURLQuery() error {
-	var where string
-	if l.filters != nil {
-		where = l.filters.Where
-	}
-
-	return l.parseNestedConditions(where, l.tree.where, And)
-}
-
 func (l *Liqu) parseNestedConditions(query string, cb *ConditionBuilder, outerOperator Operator) error {
 	if strings.TrimSpace(query) == "" {
 		return nil

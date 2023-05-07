@@ -9,6 +9,7 @@ type (
 		as               string
 		name             string
 		where            *ConditionBuilder
+		order            *OrderBuilder
 		source           Source
 		limit            *int
 		offset           *int
