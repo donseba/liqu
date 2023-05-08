@@ -16,7 +16,7 @@ type (
 		registry         *registry
 		branches         []*branch
 		relations        []branchRelation
-		selectedFields   []string
+		selectedFields   map[string]bool
 		referencedFields map[string]bool
 
 		joinDirection string

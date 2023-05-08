@@ -72,8 +72,12 @@ func (l *Liqu) scan(sourceType reflect.Type, parent *branch) error {
 			branches:         make([]*branch, 0),
 			where:            NewConditionBuilder().setLiqu(l),
 			order:            NewOrderBuilder().setLiqu(l),
-			selectedFields:   primaryKeys,
+			selectedFields:   make(map[string]bool),
 			referencedFields: make(map[string]bool),
+		}
+
+		for _, v := range primaryKeys {
+			l.tree.selectedFields[v] = true
 		}
 
 		// assign the parent and continue with the rest of the fields.
@@ -272,9 +276,13 @@ func (l *Liqu) scanChild(structField reflect.StructField, source Source, parent 
 		limit:            limit,
 		offset:           offset,
 		source:           source,
-		selectedFields:   primaryKeys,
 		referencedFields: make(map[string]bool),
+		selectedFields:   make(map[string]bool),
 		joinDirection:    joinTag,
+	}
+
+	for _, v := range primaryKeys {
+		currentBranch.selectedFields[v] = true
 	}
 
 	reg := &registry{

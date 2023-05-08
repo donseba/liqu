@@ -51,7 +51,7 @@ func (l *Liqu) traverse() error {
 		setOrderBy(l.tree.order.Build())
 
 	var wrapper *query
-	if l.tree.slice {
+	if l.sourceSlice {
 		wrapper = newSliceQuery()
 	} else {
 		wrapper = newSingleQuery()
@@ -158,7 +158,7 @@ func (l *Liqu) traverseBranch(branch *branch, parent *branch) error {
 func (l *Liqu) selectsAsStruct(branch *branch) []string {
 	var out []string
 
-	for _, field := range branch.selectedFields {
+	for field, _ := range branch.selectedFields {
 		out = append(out, fmt.Sprintf(`%s."%s"`, branch.name, field))
 	}
 
@@ -168,7 +168,7 @@ func (l *Liqu) selectsAsStruct(branch *branch) []string {
 func (l *Liqu) selectsAsObjectPair(branch *branch) []string {
 	var out []string
 
-	for _, field := range branch.selectedFields {
+	for field, _ := range branch.selectedFields {
 		out = append(out, fmt.Sprintf(`'%s'`, field), fmt.Sprintf(`%s.%s`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field]))
 	}
 
@@ -178,7 +178,7 @@ func (l *Liqu) selectsAsObjectPair(branch *branch) []string {
 func (l *Liqu) selectsWithStructAlias(branch *branch) []string {
 	var out []string
 
-	for _, field := range branch.selectedFields {
+	for field, _ := range branch.selectedFields {
 		out = append(out, fmt.Sprintf(`%s.%s AS "%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field], field))
 	}
 

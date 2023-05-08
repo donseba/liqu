@@ -65,7 +65,7 @@ func ParseURLOrderQueryToOrderBuilder(query string) (*OrderBuilder, error) {
 	return ob, nil
 }
 
-func (l *Liqu) parseOrderBy(query string, ob *OrderBuilder) error {
+func (l *Liqu) parseOrderBy(query string) error {
 	if strings.TrimSpace(query) == "" {
 		return nil
 	}

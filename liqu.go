@@ -44,6 +44,7 @@ type (
 		DisablePaging bool
 		Where         string
 		OrderBy       string
+		Select        string
 	}
 
 	Paging struct {
@@ -191,6 +192,11 @@ func ParseUrlValuesToFilters(values url.Values) (*Filters, error) {
 		PerPage: DefaultPerPage,
 	}
 
+	if selectQuery, ok := values["select"]; ok {
+		if len(selectQuery) > 0 {
+			filters.Select = selectQuery[0]
+		}
+	}
 	if whereQuery, ok := values["where"]; ok {
 		if len(whereQuery) > 0 {
 			filters.Where = whereQuery[0]
@@ -232,10 +238,12 @@ func (l *Liqu) parseFilters() error {
 	var (
 		where string
 		order string
+		sel   string
 	)
 	if l.filters != nil {
 		where = l.filters.Where
 		order = l.filters.OrderBy
+		sel = l.filters.Select
 	}
 
 	err := l.parseNestedConditions(where, l.tree.where, And)
@@ -243,7 +251,12 @@ func (l *Liqu) parseFilters() error {
 		return err
 	}
 
-	err = l.parseOrderBy(order, l.tree.order)
+	err = l.parseOrderBy(order)
+	if err != nil {
+		return err
+	}
+
+	err = l.parseSelect(sel)
 	if err != nil {
 		return err
 	}

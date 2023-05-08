@@ -466,6 +466,8 @@ func (l *Liqu) parseNestedConditions(query string, cb *ConditionBuilder, outerOp
 
 			operator := Operator(element[1])
 
+			l.registry[model].branch.selectedFields[field] = true
+
 			if len(element) == 3 {
 				var value interface{}
 				value = element[2]

@@ -7,11 +7,11 @@ import (
 )
 
 var (
-	rootQuery         = "SELECT :totalRows: :select: FROM ( :from: ) :as: :join: :where: :groupBy: :orderBy: :limit:"
+	rootQuery         = "SELECT :totalRows: :select: FROM ( :from: :where: ) :as: :join: :groupBy: :orderBy: :limit:"
 	baseQuery         = "SELECT :select: FROM :from: :as: :join: :where: :groupBy: :orderBy: :limit:"
 	lateralQuery      = ":direction: JOIN LATERAL ( :query: ) :as: ON true"
 	singleQuery       = "SELECT to_jsonb(q) FROM ( :query: ) q"
-	sliceQuery        = "SELECT jsonb_agg(q)) FROM ( :query: ) q"
+	sliceQuery        = "SELECT coalesce(jsonb_agg(q),'[]') FROM ( :query: ) q"
 	branchSingleQuery = "to_jsonb( :select: ) :as:"
 	branchSliceQuery  = "coalesce(jsonb_agg( :select: ), '[]') :as:"
 	branchAnonQuery   = ":select:"

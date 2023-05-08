@@ -7,9 +7,9 @@ import (
 
 type (
 	Project struct {
-		ID     int    `db:"id"`
-		Name   string `db:"name"`
-		Status string `db:"status" limit:"1" liqu:"append" table:"project_status" order_by:"created" related:"id_project"`
+		ID          int    `db:"id"`
+		Name        string `db:"name"`
+		Description string `db:"description"`
 	}
 
 	CategoryProject struct {
@@ -147,6 +147,7 @@ func TestWithWhere(t *testing.T) {
 		PerPage: 25,
 		Where:   "Project.Name|ILIKE|John%,Tags.Name|=|tagName",
 		OrderBy: "Project.Name|DESC,Tags.Name|DESC",
+		Select:  "Project.Description",
 	}
 
 	li := New(context.TODO(), filters)
