@@ -50,7 +50,14 @@ func (l *Liqu) traverse() error {
 		setWhere(l.tree.where.Build()).
 		setOrderBy(l.tree.order.Build())
 
-	l.sqlQuery = root.Scrub()
+	var wrapper *query
+	if l.tree.slice {
+		wrapper = newSliceQuery()
+	} else {
+		wrapper = newSingleQuery()
+	}
+
+	l.sqlQuery = wrapper.setQuery(root.Scrub()).Scrub()
 
 	return nil
 }

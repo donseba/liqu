@@ -23,6 +23,18 @@ type (
 	}
 )
 
+func newSliceQuery() *query {
+	return &query{
+		q: sliceQuery,
+	}
+}
+
+func newSingleQuery() *query {
+	return &query{
+		q: singleQuery,
+	}
+}
+
 func newRootQuery() *query {
 	return &query{
 		q: rootQuery,

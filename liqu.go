@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net/url"
 	"reflect"
 	"regexp"
 	"runtime"
@@ -184,36 +185,44 @@ func (l *Liqu) PostProcess(pp string) string {
 	return pp
 }
 
-func ParseUrlValuesToFilters(values map[string]string) (*Filters, error) {
+func ParseUrlValuesToFilters(values url.Values) (*Filters, error) {
 	filters := &Filters{
 		Page:    DefaultPage,
 		PerPage: DefaultPerPage,
 	}
 
 	if whereQuery, ok := values["where"]; ok {
-		filters.Where = whereQuery
+		if len(whereQuery) > 0 {
+			filters.Where = whereQuery[0]
+		}
 	}
 
 	if orderQuery, ok := values["order"]; ok {
-		filters.OrderBy = orderQuery
+		if len(orderQuery) > 0 {
+			filters.OrderBy = orderQuery[0]
+		}
 	}
 
 	if pageQuery, ok := values["page"]; ok {
-		pageInt, err := strconv.Atoi(pageQuery)
-		if err != nil {
-			return filters, err
-		}
+		if len(pageQuery) > 0 {
+			pageInt, err := strconv.Atoi(pageQuery[0])
+			if err != nil {
+				return filters, err
+			}
 
-		filters.Page = pageInt
+			filters.Page = pageInt
+		}
 	}
 
 	if perPageQuery, ok := values["per_page"]; ok {
-		perPageInt, err := strconv.Atoi(perPageQuery)
-		if err != nil {
-			return filters, err
-		}
+		if len(perPageQuery) > 0 {
+			perPageInt, err := strconv.Atoi(perPageQuery[0])
+			if err != nil {
+				return filters, err
+			}
 
-		filters.PerPage = perPageInt
+			filters.PerPage = perPageInt
+		}
 	}
 
 	return filters, nil
