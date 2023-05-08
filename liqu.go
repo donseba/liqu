@@ -15,7 +15,7 @@ import (
 var (
 	DefaultPage    = 1
 	DefaultPerPage = 25
-	regexTotalRows = regexp.MustCompile(`"totalrows":[0-9]+,`)
+	regexTotalRows = regexp.MustCompile(`,?\s?"totalrows":\s?[0-9]+,?\s?`)
 )
 
 type (
