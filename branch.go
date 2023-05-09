@@ -10,6 +10,7 @@ type (
 		name             string
 		where            *ConditionBuilder
 		order            *OrderBuilder
+		groupBy          *GroupByBuilder
 		source           Source
 		limit            *int
 		offset           *int

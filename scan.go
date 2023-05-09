@@ -72,6 +72,7 @@ func (l *Liqu) scan(sourceType reflect.Type, parent *branch) error {
 			branches:         make([]*branch, 0),
 			where:            NewConditionBuilder().setLiqu(l),
 			order:            NewOrderBuilder().setLiqu(l),
+			groupBy:          NewGroupByBuilder().setLiqu(l),
 			selectedFields:   make(map[string]bool),
 			referencedFields: make(map[string]bool),
 		}
@@ -273,6 +274,7 @@ func (l *Liqu) scanChild(structField reflect.StructField, source Source, parent 
 		name:             selectFieldName,
 		where:            NewConditionBuilder().setLiqu(l),
 		order:            NewOrderBuilder().setLiqu(l),
+		groupBy:          NewGroupByBuilder().setLiqu(l),
 		limit:            limit,
 		offset:           offset,
 		source:           source,

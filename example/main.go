@@ -76,7 +76,7 @@ func main() {
 
 	result = li.PostProcess(result)
 
-	// after the PostProcess you kan fetch the paging params
-	paging := li.Paging()
-	liqu.Debug(paging)
+	// after the PostProcess you kan fetch the paging params from the filters
+	filters := li.Filters()
+	liqu.Debug(filters)
 }

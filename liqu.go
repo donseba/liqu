@@ -31,28 +31,10 @@ type (
 		sourceSlice bool
 		tree        *branch
 		registry    map[string]registry
-		paging      *Paging
 		filters     *Filters
 
 		sqlQuery  string
 		sqlParams []interface{}
-	}
-
-	Filters struct {
-		Page          int
-		PerPage       int
-		DisablePaging bool
-		Where         string
-		OrderBy       string
-		Select        string
-	}
-
-	Paging struct {
-		Page         int
-		PerPage      int
-		TotalResults int
-		TotalPages   int
-		Disabled     bool
 	}
 
 	registry struct {
@@ -65,27 +47,26 @@ type (
 )
 
 func New(ctx context.Context, filters *Filters) *Liqu {
-	var (
-		page     = DefaultPage
-		perPage  = DefaultPerPage
-		disabled = false
-	)
+	if filters == nil {
+		filters = &Filters{
+			Page:          DefaultPage,
+			PerPage:       DefaultPerPage,
+			DisablePaging: false,
+		}
+	}
 
-	if filters != nil {
-		page = filters.Page
-		perPage = filters.PerPage
-		disabled = filters.DisablePaging
+	if filters.Page >= 0 {
+		filters.Page = DefaultPage
+	}
+
+	if filters.PerPage >= 0 {
+		filters.PerPage = DefaultPerPage
 	}
 
 	return &Liqu{
 		ctx:      ctx,
 		registry: make(map[string]registry, 0),
 		filters:  filters,
-		paging: &Paging{
-			Page:     page,
-			PerPage:  perPage,
-			Disabled: disabled,
-		},
 	}
 }
 
@@ -167,8 +148,8 @@ func (l *Liqu) SQL() (string, []interface{}) {
 	return l.sqlQuery, l.sqlParams
 }
 
-func (l *Liqu) Paging() *Paging {
-	return l.paging
+func (l *Liqu) Filters() *Filters {
+	return l.filters
 }
 
 func (l *Liqu) PostProcess(pp string) string {
@@ -180,8 +161,8 @@ func (l *Liqu) PostProcess(pp string) string {
 		count, _ = strconv.Atoi(regexp.MustCompile("[0-9]+").FindString(rexMatch[0]))
 	}
 
-	l.paging.TotalResults = count
-	l.paging.TotalPages = int(math.Ceil(float64(l.paging.TotalResults) / float64(l.paging.PerPage)))
+	l.filters.totalResults = count
+	l.filters.totalPages = int(math.Ceil(float64(l.filters.totalResults) / float64(l.filters.PerPage)))
 
 	return pp
 }

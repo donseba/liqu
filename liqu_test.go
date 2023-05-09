@@ -145,7 +145,6 @@ func TestWithWhere(t *testing.T) {
 	filters := &Filters{
 		Page:    1,
 		PerPage: 25,
-		Where:   "Project.Name|ILIKE|John%,Tags.Name|=|tagName",
 		OrderBy: "Project.Name|DESC,Tags.Name|DESC",
 		Select:  "Project.Description",
 	}

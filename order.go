@@ -106,6 +106,8 @@ func (l *Liqu) parseOrderBy(query string) error {
 		}
 
 		l.registry[model].branch.order.OrderBy(column, direction)
+		l.registry[model].branch.groupBy.GroupBy(column)
+
 	}
 
 	return nil

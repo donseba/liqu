@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	rootQuery         = "SELECT :totalRows: :select: FROM ( :from: :where: ) :as: :join: :groupBy: :orderBy: :limit:"
+	rootQuery         = "SELECT :totalRows: :select: FROM ( :from: :where: :groupBy: :orderBy: ) :as: :join: :limit:"
 	baseQuery         = "SELECT :select: FROM :from: :as: :join: :where: :groupBy: :orderBy: :limit:"
 	lateralQuery      = ":direction: JOIN LATERAL ( :query: ) :as: ON true"
 	singleQuery       = "SELECT to_jsonb(q) FROM ( :query: ) q"
@@ -112,13 +112,13 @@ func (q *query) setFrom(value string) *query {
 	return q
 }
 
-func (q *query) setGroupBy(groupBy []string) *query {
-	groupByString := ""
-	if len(groupBy) > 0 {
-		groupByString = " GROUP BY " + strings.Join(groupBy, ",")
+func (q *query) setGroupBy(gb string) *query {
+	str := ""
+	if gb != "" {
+		str = fmt.Sprintf("GROUP BY %s", gb)
 	}
 
-	q.q = strings.Replace(q.q, ":groupBy:", groupByString, 1)
+	q.q = strings.Replace(q.q, ":groupBy:", str, 1)
 
 	return q
 }
@@ -134,21 +134,21 @@ func (q *query) setOrderBy(ob string) *query {
 	return q
 }
 
-func (q *query) setLimit(paging *Paging) *query {
-	if paging == nil {
+func (q *query) setLimit(filters *Filters) *query {
+	if filters == nil {
 		return q
 	}
 
-	if paging.Disabled {
+	if filters.DisablePaging {
 		return q
 	}
 
 	offset := 0
-	if paging.Page > 1 {
-		offset = (paging.Page - 1) * paging.PerPage
+	if filters.Page > 1 {
+		offset = (filters.Page - 1) * filters.PerPage
 	}
 
-	q.q = strings.Replace(q.q, ":limit:", fmt.Sprintf("LIMIT %d OFFSET %d ", paging.PerPage, offset), 1)
+	q.q = strings.Replace(q.q, ":limit:", fmt.Sprintf("LIMIT %d OFFSET %d ", filters.PerPage, offset), 1)
 
 	return q
 }
