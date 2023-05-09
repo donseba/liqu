@@ -8,6 +8,7 @@ import (
 type (
 	Project struct {
 		ID          int    `db:"id"`
+		CompanyID   int    `db:"company_id"`
 		Name        string `db:"name"`
 		Description string `db:"description"`
 	}
@@ -121,7 +122,11 @@ func TestWithoutJoins(t *testing.T) {
 	}
 
 	for _, te := range test {
-		li := New(context.TODO(), nil)
+		filters := &Filters{
+			Select: "Project.ID",
+		}
+
+		li := New(context.TODO(), filters)
 
 		err := li.FromSource(te.Model)
 		if err != nil {
@@ -145,11 +150,18 @@ func TestWithWhere(t *testing.T) {
 	filters := &Filters{
 		Page:    2,
 		PerPage: 25,
-		OrderBy: "Project.Name|DESC,Tags.Name|DESC",
-		//Select:  "Project.Description",
+		OrderBy: "Project.Name|ASC,Tags.Name|DESC",
+		Select:  "Project.Description",
+		Where:   "Project.CompanyID|=|overrideCheck,Project.Name|=|Foo",
 	}
 
 	li := New(context.TODO(), filters)
+
+	def := NewDefaults().
+		OrderBy("Project.Name", Desc).
+		Where("Project.CompanyID", Equal, "11111111-0000-0000-0000-123456789012")
+
+	li.WithDefaults(def)
 
 	tree := make([]Tree, 0)
 

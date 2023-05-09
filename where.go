@@ -38,19 +38,21 @@ func (o Operator) String() string {
 
 // ConditionBuilder is a struct for fluently building SQL WHERE clauses
 type ConditionBuilder struct {
-	column     string
-	conditions []string
-	args       []any
-	counter    int
-	liqu       *Liqu
+	column           string
+	conditions       []string
+	args             []any
+	counter          int
+	liqu             *Liqu
+	protectedColumns map[string]bool
 }
 
 // NewConditionBuilder initializes and returns a new ConditionBuilder
 func NewConditionBuilder() *ConditionBuilder {
 	return &ConditionBuilder{
-		conditions: []string{},
-		args:       []any{},
-		counter:    0,
+		conditions:       []string{},
+		args:             []any{},
+		counter:          0,
+		protectedColumns: make(map[string]bool),
 	}
 }
 
@@ -63,6 +65,10 @@ func (cb *ConditionBuilder) Column(column string) *ConditionBuilder {
 // Condition adds a condition with the provided operator and value
 func (cb *ConditionBuilder) Condition(op Operator, value interface{}) *ConditionBuilder {
 	var condition string
+
+	if queried, ok := cb.protectedColumns[cb.column]; ok && queried {
+		return cb
+	}
 
 	if value != nil && reflect.TypeOf(value).Kind() == reflect.Slice {
 		slice, ok := reflect.ValueOf(value).Interface().([]string)
@@ -442,54 +448,81 @@ func (l *Liqu) parseNestedConditions(query string, cb *ConditionBuilder, outerOp
 				return fmt.Errorf("invalid query format: %s", part)
 			}
 
-			var (
-				model  string
-				field  string
-				column string
-			)
-
-			if strings.Contains(element[0], ".") {
-				el := strings.Split(element[0], ".")
-				model = el[0]
-				field = el[1]
-			} else {
-				model = l.tree.as
-				field = element[0]
-			}
-
-			var ok bool
-			if column, ok = l.registry[model].fieldDatabase[field]; !ok {
-				return fmt.Errorf("invalid search field %s", element[0])
-			}
-			column = fmt.Sprintf("%s.%s", l.registry[model].tableName, column)
-
-			operator := Operator(element[1])
-
-			l.registry[model].branch.selectedFields[field] = true
-
+			el3 := ""
 			if len(element) == 3 {
-				var value interface{}
-				value = element[2]
-				if strings.Contains(element[2], "--") {
-					value = strings.Split(element[2], "--")
-				} else {
-					value = element[2]
-				}
+				el3 = element[2]
+			}
 
-				if outerOperator == And {
-					l.registry[model].branch.where.And(column, operator, value)
-				} else {
-					l.registry[model].branch.where.Or(column, operator, value)
-				}
-			} else {
-				if outerOperator == And {
-					l.registry[model].branch.where.And(column, operator, nil)
-				} else {
-					l.registry[model].branch.where.Or(column, operator, nil)
-				}
+			err := l.processWhere(outerOperator, element[0], element[1], el3, false)
+			if err != nil {
+				return err
 			}
 		}
 	}
 
 	return nil
+}
+
+func (l *Liqu) processWhere(outerOperator Operator, col string, op string, val interface{}, protect bool) error {
+	var (
+		model  string
+		field  string
+		column string
+	)
+
+	if strings.Contains(col, ".") {
+		el := strings.Split(col, ".")
+		model = el[0]
+		field = el[1]
+	} else {
+		model = l.tree.as
+		field = col
+	}
+
+	var ok bool
+	if column, ok = l.registry[model].fieldDatabase[field]; !ok {
+		return fmt.Errorf("invalid search field %s", col)
+	}
+	column = fmt.Sprintf("%s.%s", l.registry[model].tableName, column)
+
+	operator := Operator(op)
+
+	l.registry[model].branch.selectedFields[field] = true
+
+	if val != nil {
+		var value interface{}
+		value = val
+		sval := fmt.Sprintf("%s", val)
+		if strings.Contains(sval, "--") {
+			value = strings.Split(sval, "--")
+		} else {
+			value = val
+		}
+
+		if outerOperator == And {
+			l.registry[model].branch.where.And(column, operator, value)
+		} else {
+			l.registry[model].branch.where.Or(column, operator, value)
+		}
+	} else {
+		if outerOperator == And {
+			l.registry[model].branch.where.And(column, operator, nil)
+		} else {
+			l.registry[model].branch.where.Or(column, operator, nil)
+		}
+	}
+
+	if protect {
+		l.registry[model].branch.where.ProtectColumn(column)
+	}
+
+	return nil
+}
+
+func (cb *ConditionBuilder) ProtectColumn(column string) *ConditionBuilder {
+	if cb.protectedColumns == nil {
+		cb.protectedColumns = make(map[string]bool)
+	}
+	cb.protectedColumns[column] = true
+	return cb
 }

@@ -2,6 +2,7 @@ package liqu
 
 import (
 	"fmt"
+	"html/template"
 	"net/url"
 	"strings"
 )
@@ -17,9 +18,47 @@ type (
 		OrderBy       string
 		Select        string
 	}
+
+	Range struct {
+		Number  int
+		Current bool
+		Url     template.URL
+	}
+
+	Ranges []Range
 )
 
-func (f *Filters) First() string {
+func (f *Filters) TotalResults() int {
+	return f.totalResults
+}
+
+func (f *Filters) TotalPages() int {
+	return f.totalPages
+}
+
+func (f *Filters) FirstOnPage() int {
+	if f.Page == 1 {
+		return 1
+	}
+
+	return ((f.Page - 1) * f.PerPage) + 1
+}
+
+func (f *Filters) LastOnPage() int {
+	var (
+		total = f.totalResults
+	)
+
+	calc := f.Page * f.PerPage
+
+	if calc < total {
+		total = calc
+	}
+
+	return total
+}
+
+func (f *Filters) First() template.URL {
 	uv := url.Values{}
 
 	uv.Set("page", fmt.Sprintf("%v", 1))
@@ -28,20 +67,20 @@ func (f *Filters) First() string {
 	return f.params(uv)
 }
 
-func (f *Filters) Previous() string {
+func (f *Filters) Previous() template.URL {
 	uv := url.Values{}
 
 	if f.Page <= 1 {
 		return ""
 	}
 
-	uv.Set("page", fmt.Sprintf("%v", 1))
+	uv.Set("page", fmt.Sprintf("%v", f.Page-1))
 	uv.Set("per_page", fmt.Sprintf("%v", f.PerPage))
 
 	return f.params(uv)
 }
 
-func (f *Filters) Current() string {
+func (f *Filters) Current() template.URL {
 	uv := url.Values{}
 
 	uv.Set("page", fmt.Sprintf("%v", f.Page))
@@ -50,7 +89,7 @@ func (f *Filters) Current() string {
 	return f.params(uv)
 }
 
-func (f *Filters) Next() string {
+func (f *Filters) Next() template.URL {
 	uv := url.Values{}
 
 	if f.Page >= f.totalPages {
@@ -63,7 +102,7 @@ func (f *Filters) Next() string {
 	return f.params(uv)
 }
 
-func (f *Filters) Last() string {
+func (f *Filters) Last() template.URL {
 	uv := url.Values{}
 
 	if f.Page == f.totalPages {
@@ -76,7 +115,34 @@ func (f *Filters) Last() string {
 	return f.params(uv)
 }
 
-func (f *Filters) params(query url.Values) string {
+func (f *Filters) Range() Ranges {
+	r := make(Ranges, 0)
+
+	for i := f.Page - 5; i < f.Page+5; i++ {
+		if i <= 0 || i > f.totalPages {
+			continue
+		}
+
+		r = append(r, Range{
+			Number:  i,
+			Current: i == f.Page,
+			Url:     f.set(i),
+		})
+	}
+
+	return r
+}
+
+func (f *Filters) set(page int) template.URL {
+	uv := url.Values{}
+
+	uv.Set("page", fmt.Sprintf("%v", page))
+	uv.Set("per_page", fmt.Sprintf("%v", f.PerPage))
+
+	return f.params(uv)
+}
+
+func (f *Filters) params(query url.Values) template.URL {
 	if strings.TrimSpace(f.Where) != "" {
 		query.Set("where", f.Where)
 	}
@@ -89,5 +155,5 @@ func (f *Filters) params(query url.Values) string {
 		query.Set("select", f.Select)
 	}
 
-	return query.Encode()
+	return template.URL(query.Encode())
 }

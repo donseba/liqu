@@ -101,42 +101,45 @@ func main() {
 	result = li.PostProcess(result)
 
 	// after the PostProcess you kan fetch the paging params
-	paging := li.Paging()
-	liqu.Debug(paging)
+	filters := li.Filters()
+	liqu.Debug(filters)
 }
 ```
 
 which results in the following base query:
 
 ```postgresql
- SELECT    Count(*) over()     AS totalrows,
+ SELECT    SELECT coalesce(jsonb_agg(q),'[]') FROM ( 
+    SELECT Count(*) over()     AS totalrows,
            To_jsonb( article ) AS article,
            author.author       AS "Author",
            category.category   AS "Category"
-FROM       (
-                  SELECT article.id AS "ID"
-                  FROM   article ) AS article
-right join lateral
-           (
-                  SELECT to_jsonb( jsonb_build_object( 'ID', author.id ) ) AS author
-                  FROM   author
-                  WHERE  id = article."AuthorID" ) AS author
-ON         TRUE
-left join  lateral
-           (
-                  SELECT to_jsonb( jsonb_build_object( 'ID', author.id ) ) AS category
-                  FROM   author
-                  WHERE  id = article."CategoryID" ) AS category
-ON         TRUE limit 25 offset 0
+    FROM       (
+        SELECT article.id AS "ID"
+        FROM   article ) AS article
+        right join lateral (
+              SELECT to_jsonb( jsonb_build_object( 'ID', author.id ) ) AS author
+              FROM   author
+              WHERE  id = article."AuthorID" 
+        ) AS author ON TRUE
+        left join  lateral (
+              SELECT to_jsonb( jsonb_build_object( 'ID', author.id ) ) AS category
+              FROM   author
+              WHERE  id = article."CategoryID" 
+        ) AS category ON TRUE 
+    limit 25 offset 0 
+) q
+
 ```
 
 ## TODO
 
 - [ ]  CTE
 - [x]  Order by
-- [ ]  Specify fields to select, add option to default to all fields
+- [x]  Specify fields to select
+- [ ]  Add option to default to all fields
 - [ ]  Aggregate functions like SUM, AVG, MIN, MAX
 - [ ]  sub query support into a single field
-- [ ]  protected order by
-- [ ]  protected where clause
+- [x]  default order by
+- [x]  protected where clause, to force company uuid or other value
 - [ ]  tests

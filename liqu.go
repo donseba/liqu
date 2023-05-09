@@ -32,6 +32,7 @@ type (
 		tree        *branch
 		registry    map[string]registry
 		filters     *Filters
+		defaults    *Defaults
 
 		sqlQuery  string
 		sqlParams []interface{}
@@ -67,7 +68,12 @@ func New(ctx context.Context, filters *Filters) *Liqu {
 		ctx:      ctx,
 		registry: make(map[string]registry, 0),
 		filters:  filters,
+		defaults: NewDefaults(),
 	}
+}
+
+func (l *Liqu) WithDefaults(defaults *Defaults) {
+	l.defaults = defaults
 }
 
 func (l *Liqu) FromSource(source interface{}) error {
@@ -184,7 +190,7 @@ func ParseUrlValuesToFilters(values url.Values) (*Filters, error) {
 		}
 	}
 
-	if orderQuery, ok := values["order"]; ok {
+	if orderQuery, ok := values["order_by"]; ok {
 		if len(orderQuery) > 0 {
 			filters.OrderBy = orderQuery[0]
 		}
@@ -227,7 +233,12 @@ func (l *Liqu) parseFilters() error {
 		sel = l.filters.Select
 	}
 
-	err := l.parseNestedConditions(where, l.tree.where, And)
+	err := l.processDefaults()
+	if err != nil {
+		return err
+	}
+
+	err = l.parseNestedConditions(where, l.tree.where, And)
 	if err != nil {
 		return err
 	}

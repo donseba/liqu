@@ -15,7 +15,7 @@ func (l *Liqu) parseSelect(query string) error {
 	for _, sel := range selects {
 		parts := strings.Split(sel, ".")
 		if len(parts) != 2 {
-			return fmt.Errorf("invalid order format: %s", sel)
+			return fmt.Errorf("invalid select format: %s", sel)
 		}
 
 		var (
