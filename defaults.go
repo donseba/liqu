@@ -69,7 +69,5 @@ func (l *Liqu) processDefaults() error {
 		}
 	}
 
-	Debug(l.registry["Project"].branch.selectedFields)
-
 	return nil
 }

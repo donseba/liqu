@@ -371,7 +371,6 @@ func (l *Liqu) parseRelated(tag string, branch *branch, parent *branch) error {
 
 		// only need to expose it if the request os from a lateral join that is not within the same scope
 		if rightTable != parent.as {
-			Debug(rightTable)
 			l.registry[rightTable].branch.referencedFields[rightField] = true
 		}
 	}
