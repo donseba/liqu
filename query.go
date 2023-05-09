@@ -153,13 +153,8 @@ func (q *query) setLimit(filters *Filters) *query {
 	return q
 }
 
-func (q *query) setAs(this string, that string) *query {
-	as := strings.TrimSpace(this)
-
-	if as == "" {
-		as = strings.TrimSpace(that)
-	}
-
+func (q *query) setAs(as string) *query {
+	as = strings.TrimSpace(as)
 	if as != "" {
 		as = fmt.Sprintf(" AS %s", as)
 	}

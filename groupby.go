@@ -5,7 +5,6 @@ import (
 )
 
 type GroupByBuilder struct {
-	liqu   *Liqu
 	groups []string
 }
 
@@ -13,12 +12,6 @@ func NewGroupByBuilder() *GroupByBuilder {
 	return &GroupByBuilder{
 		groups: []string{},
 	}
-}
-
-func (gb *GroupByBuilder) setLiqu(liqu *Liqu) *GroupByBuilder {
-	gb.liqu = liqu
-
-	return gb
 }
 
 func (gb *GroupByBuilder) GroupBy(column string) *GroupByBuilder {

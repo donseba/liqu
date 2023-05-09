@@ -146,7 +146,7 @@ func TestWithWhere(t *testing.T) {
 		Page:    2,
 		PerPage: 25,
 		OrderBy: "Project.Name|DESC,Tags.Name|DESC",
-		Select:  "Project.Description",
+		//Select:  "Project.Description",
 	}
 
 	li := New(context.TODO(), filters)

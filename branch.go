@@ -44,6 +44,6 @@ type (
 
 const (
 	leftJoin  joinOperator = "LEFT"
-	rightJoin joinOperator = "RIGHT"
-	fullJoin  joinOperator = "FULL"
+	rightJoin              = "RIGHT"
+	fullJoin               = "FULL"
 )

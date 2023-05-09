@@ -19,7 +19,7 @@ func (l *Liqu) traverse() error {
 		} else {
 			rootFieldSelect = newBranchSingle()
 		}
-		rootFieldSelect.setSelect(l.tree.as).setAs(l.tree.as, fmt.Sprintf(`"%s"`, l.tree.name))
+		rootFieldSelect.setSelect(l.tree.as).setAs(l.tree.as)
 	} else {
 		rootFieldSelect.setSelect(strings.Join(l.selectsAsStruct(l.tree), ", "))
 	}
@@ -35,7 +35,7 @@ func (l *Liqu) traverse() error {
 
 	base := newBaseQuery().
 		setFrom(l.tree.registry.tableName).
-		setSelect(strings.Join(l.selectsWithStructAlias(l.tree), ","))
+		setSelect(strings.Join(l.selectsWithStructAlias(l.tree), ", "))
 
 	rootSelects := []string{rootFieldSelect.Scrub()}
 
@@ -43,9 +43,9 @@ func (l *Liqu) traverse() error {
 		rootSelects = append(rootSelects, fmt.Sprintf(`%s.%s AS "%s"`, v.as, v.field, v.field))
 	}
 
-	root.setSelect(strings.Join(rootSelects, ",")).
+	root.setSelect(strings.Join(rootSelects, ", ")).
 		setFrom(base.Scrub()).
-		setAs(l.tree.as, l.tree.registry.tableName).
+		setAs(l.tree.as).
 		setLimit(l.filters).
 		setWhere(l.tree.where.Build()).
 		setOrderBy(l.tree.order.Build()).
@@ -72,8 +72,6 @@ func (l *Liqu) traverseBranch(branch *branch, parent *branch) error {
 
 	var (
 		selects = make([]string, 0)
-		//wheres  = make([]string, 0)
-		//groupBy = make([]string, 0)
 	)
 
 	branchFieldSelect := newBranchAnon()
@@ -104,7 +102,7 @@ func (l *Liqu) traverseBranch(branch *branch, parent *branch) error {
 		branch.groupBy.GroupBy(v.field)
 	}
 
-	branchFieldSelect.setSelect(fmt.Sprintf("jsonb_build_object( %s )", strings.Join(selects, ", "))).setAs(branch.as, branch.name)
+	branchFieldSelect.setSelect(fmt.Sprintf("jsonb_build_object( %s )", strings.Join(selects, ", "))).setAs(branch.as)
 
 	for _, v := range branch.relations {
 		externalField := l.registry[v.externalTable].fieldDatabase[v.externalField]
@@ -133,7 +131,7 @@ func (l *Liqu) traverseBranch(branch *branch, parent *branch) error {
 
 	selectsWithReferences = append(selectsWithReferences, branchFieldSelect.Scrub())
 
-	base.setSelect(strings.Join(selectsWithReferences, ",")).
+	base.setSelect(strings.Join(selectsWithReferences, ", ")).
 		setJoin(strings.Join(branch.joinBranched, " ")).
 		setWhere(branch.where.Build()).
 		setOrderBy(branch.order.Build()).
@@ -151,41 +149,8 @@ func (l *Liqu) traverseBranch(branch *branch, parent *branch) error {
 
 	parent.joinBranched = append(
 		parent.joinBranched,
-		newLateralQuery().setQuery(base.Scrub()).setDirection(branch.joinDirection).setAs(branch.as, branch.name).Scrub(),
+		newLateralQuery().setQuery(base.Scrub()).setDirection(branch.joinDirection).setAs(branch.as).Scrub(),
 	)
 
 	return nil
-}
-
-func (l *Liqu) selectsAsStruct(branch *branch) []string {
-	var out []string
-
-	for field, _ := range branch.selectedFields {
-		out = append(out, fmt.Sprintf(`%s."%s"`, branch.name, field))
-		branch.groupBy.GroupBy(fmt.Sprintf(`%s.%s`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field]))
-	}
-
-	return out
-}
-
-func (l *Liqu) selectsAsObjectPair(branch *branch) []string {
-	var out []string
-
-	for field, _ := range branch.selectedFields {
-		out = append(out, fmt.Sprintf(`'%s'`, field), fmt.Sprintf(`%s.%s`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field]))
-		branch.groupBy.GroupBy(fmt.Sprintf(`%s.%s`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field]))
-	}
-
-	return out
-}
-
-func (l *Liqu) selectsWithStructAlias(branch *branch) []string {
-	var out []string
-
-	for field, _ := range branch.selectedFields {
-		out = append(out, fmt.Sprintf(`%s.%s AS "%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field], field))
-		branch.groupBy.GroupBy(fmt.Sprintf(`%s.%s`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field]))
-	}
-
-	return out
 }

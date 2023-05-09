@@ -14,7 +14,6 @@ const (
 	Or                 Operator = "OR"
 	Equal              Operator = "="
 	NotEqual           Operator = "<>"
-	NotEqualAlt        Operator = "!="
 	LessThan           Operator = "<"
 	LessThanOrEqual    Operator = "<="
 	GreaterThan        Operator = ">"

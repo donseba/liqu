@@ -7,7 +7,7 @@ import (
 
 func (l *Liqu) parseSelect(query string) error {
 	if strings.TrimSpace(query) == "" {
-		return nil
+		query = l.tree.as + ".*"
 	}
 
 	selects := strings.Split(query, ",")
@@ -33,4 +33,37 @@ func (l *Liqu) parseSelect(query string) error {
 	}
 
 	return nil
+}
+
+func (l *Liqu) selectsAsStruct(branch *branch) []string {
+	var out []string
+
+	for field, _ := range branch.selectedFields {
+		out = append(out, fmt.Sprintf(`%s."%s"`, branch.name, field))
+		branch.groupBy.GroupBy(fmt.Sprintf(`%s.%s`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field]))
+	}
+
+	return out
+}
+
+func (l *Liqu) selectsAsObjectPair(branch *branch) []string {
+	var out []string
+
+	for field, _ := range branch.selectedFields {
+		out = append(out, fmt.Sprintf(`'%s'`, field), fmt.Sprintf(`%s.%s`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field]))
+		branch.groupBy.GroupBy(fmt.Sprintf(`%s.%s`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field]))
+	}
+
+	return out
+}
+
+func (l *Liqu) selectsWithStructAlias(branch *branch) []string {
+	var out []string
+
+	for field, _ := range branch.selectedFields {
+		out = append(out, fmt.Sprintf(`%s.%s AS "%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field], field))
+		branch.groupBy.GroupBy(fmt.Sprintf(`%s.%s`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field]))
+	}
+
+	return out
 }

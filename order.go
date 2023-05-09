@@ -9,7 +9,7 @@ type OrderDirection string
 
 const (
 	Asc  OrderDirection = "ASC"
-	Desc OrderDirection = "DESC"
+	Desc                = "DESC"
 )
 
 func (od OrderDirection) String() string {
@@ -17,7 +17,6 @@ func (od OrderDirection) String() string {
 }
 
 type OrderBuilder struct {
-	liqu   *Liqu
 	orders []string
 }
 
@@ -25,12 +24,6 @@ func NewOrderBuilder() *OrderBuilder {
 	return &OrderBuilder{
 		orders: []string{},
 	}
-}
-
-func (ob *OrderBuilder) setLiqu(liqu *Liqu) *OrderBuilder {
-	ob.liqu = liqu
-
-	return ob
 }
 
 func (ob *OrderBuilder) OrderBy(column string, direction OrderDirection) *OrderBuilder {
