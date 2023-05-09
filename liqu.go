@@ -10,12 +10,13 @@ import (
 	"regexp"
 	"runtime"
 	"strconv"
+	"strings"
 )
 
 var (
 	DefaultPage    = 1
 	DefaultPerPage = 25
-	regexTotalRows = regexp.MustCompile(`,?\s?"totalrows":\s?[0-9]+,?\s?`)
+	regexTotalRows = regexp.MustCompile(`,?\s?"totalrows":\s?[0-9]+,?`)
 )
 
 type (
@@ -165,7 +166,11 @@ func (l *Liqu) PostProcess(pp string) string {
 
 	rexMatch := regexTotalRows.FindStringSubmatch(pp)
 	if len(rexMatch) > 0 {
-		pp = regexTotalRows.ReplaceAllString(pp, "")
+		var replacer string
+		if strings.HasPrefix(rexMatch[0], ",") && strings.HasSuffix(rexMatch[0], ",") {
+			replacer = ", "
+		}
+		pp = regexTotalRows.ReplaceAllString(pp, replacer)
 		count, _ = strconv.Atoi(regexp.MustCompile("[0-9]+").FindString(rexMatch[0]))
 	}
 
