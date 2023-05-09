@@ -19,7 +19,7 @@ func (l *Liqu) traverse() error {
 		} else {
 			rootFieldSelect = newBranchSingle()
 		}
-		rootFieldSelect.setSelect(l.tree.as).setAs(l.tree.as)
+		rootFieldSelect.setSelect(fmt.Sprintf(`"%s"`, l.tree.as)).setAs(l.tree.as)
 	} else {
 		rootFieldSelect.setSelect(strings.Join(l.selectsAsStruct(l.tree), ", "))
 	}
@@ -40,7 +40,7 @@ func (l *Liqu) traverse() error {
 	rootSelects := []string{rootFieldSelect.Scrub()}
 
 	for _, v := range l.tree.joinFields {
-		rootSelects = append(rootSelects, fmt.Sprintf(`%s.%s AS "%s"`, v.as, v.field, v.field))
+		rootSelects = append(rootSelects, fmt.Sprintf(`"%s"."%s" AS "%s"`, v.as, v.field, v.field))
 	}
 
 	root.setSelect(strings.Join(rootSelects, ", ")).
@@ -98,7 +98,7 @@ func (l *Liqu) traverseBranch(branch *branch, parent *branch) error {
 	}
 
 	for _, v := range branch.joinFields {
-		selects = append(selects, fmt.Sprintf(`'%s', %s.%s`, v.field, v.as, v.field))
+		selects = append(selects, fmt.Sprintf(`'%s', "%s"."%s"`, v.field, v.as, v.field))
 		//branch.groupBy.GroupBy(v.field)
 	}
 
@@ -109,13 +109,14 @@ func (l *Liqu) traverseBranch(branch *branch, parent *branch) error {
 		externalTable := l.registry[v.externalTable].tableName
 		if v.parent {
 			if l.tree.as == v.externalTable {
-				externalField = fmt.Sprintf(`"%s"`, v.externalField)
+				externalField = fmt.Sprintf(`%s`, v.externalField)
+				externalTable = v.externalTable
 			}
 		} else {
 			externalTable = v.externalTable
 		}
 
-		branch.where.AndRaw(fmt.Sprintf("%s %s %s.%s",
+		branch.where.AndRaw(fmt.Sprintf(`%s %s "%s"."%s"`,
 			l.registry[branch.as].fieldDatabase[v.localField],
 			v.operator,
 			externalTable,
@@ -138,13 +139,16 @@ func (l *Liqu) traverseBranch(branch *branch, parent *branch) error {
 	//setGroupBy(branch.groupBy.Build())
 
 	if branch.limit != nil {
-		paging := &Filters{
+		filters := &Filters{
+			Page:    1,
 			PerPage: *branch.limit,
 		}
-		if branch.offset == nil {
-			paging.Page = *branch.offset
+
+		if branch.offset != nil {
+			filters.Page = *branch.offset
 		}
-		base.setLimit(paging)
+
+		base.setLimit(filters)
 	}
 
 	parent.joinBranched = append(

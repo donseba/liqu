@@ -136,7 +136,7 @@ func (l *Liqu) processOrderBy(col, dir string) error {
 		return fmt.Errorf("invalid order field %s", col)
 	}
 
-	column = fmt.Sprintf("%s.%s", l.registry[model].tableName, column)
+	column = fmt.Sprintf(`"%s"."%s"`, l.registry[model].tableName, column)
 
 	if l.registry[model].branch.order.HasOrderBy(column) {
 		l.registry[model].branch.order.Unset(column)

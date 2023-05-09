@@ -483,7 +483,8 @@ func (l *Liqu) processWhere(outerOperator Operator, col string, op string, val i
 	if column, ok = l.registry[model].fieldDatabase[field]; !ok {
 		return fmt.Errorf("invalid search field %s", col)
 	}
-	column = fmt.Sprintf("%s.%s", l.registry[model].tableName, column)
+
+	column = fmt.Sprintf(`"%s"."%s"`, l.registry[model].tableName, column)
 
 	operator := Operator(op)
 

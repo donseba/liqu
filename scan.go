@@ -237,10 +237,12 @@ func (l *Liqu) scanChild(structField reflect.StructField, source Source, parent 
 		relatedTag = structField.Tag.Get("related")
 		limitTag   = structField.Tag.Get("limit")
 		offsetTag  = structField.Tag.Get("offset")
+		selectTag  = structField.Tag.Get("select")
+		orderByTag = structField.Tag.Get("order_by")
+		groupByTag = structField.Tag.Get("group_by")
 		//liquTag    = structField.Tag.Get("liqu")
 		//dbTag      = structField.Tag.Get("db")
 		//whereTag   = structField.Tag.Get("where")
-		//orderByTag = structField.Tag.Get("order_by")
 	)
 
 	var (
@@ -266,6 +268,14 @@ func (l *Liqu) scanChild(structField reflect.StructField, source Source, parent 
 		joinTag = "INNER"
 	}
 
+	selectedFields := make(map[string]bool)
+	if selectTag != "" {
+		fields := strings.Split(selectTag, ",")
+		for _, f := range fields {
+			selectedFields[f] = true
+		}
+	}
+
 	currentBranch := &branch{
 		liqu:             l,
 		root:             parent,
@@ -279,7 +289,7 @@ func (l *Liqu) scanChild(structField reflect.StructField, source Source, parent 
 		offset:           offset,
 		source:           source,
 		referencedFields: make(map[string]bool),
-		selectedFields:   make(map[string]bool),
+		selectedFields:   selectedFields,
 		joinDirection:    joinTag,
 	}
 
@@ -309,6 +319,20 @@ func (l *Liqu) scanChild(structField reflect.StructField, source Source, parent 
 	err = l.scan(fieldType, currentBranch)
 	if err != nil {
 		return err
+	}
+
+	if orderByTag != "" {
+		err := l.parseOrderBy(orderByTag)
+		if err != nil {
+			Debug(err)
+		}
+	}
+
+	if groupByTag != "" {
+		err := l.parseGroupBy(groupByTag)
+		if err != nil {
+			Debug(err)
+		}
 	}
 
 	return nil

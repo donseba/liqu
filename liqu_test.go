@@ -109,15 +109,15 @@ func TestWithoutJoins(t *testing.T) {
 	}{
 		{
 			Model:    make([]Single, 0),
-			Expected: `SELECT coalesce(jsonb_agg(q),'[]') FROM ( SELECT count(*) OVER() AS TotalRows, to_jsonb( Project ) AS Project FROM ( SELECT project.id AS "ID" FROM project GROUP BY project.id ) AS Project LIMIT 25 OFFSET 0 ) q`,
+			Expected: `SELECT coalesce(jsonb_agg(q),'[]') FROM ( SELECT count(*) OVER() AS TotalRows, to_jsonb( "Project" ) AS "Project" FROM ( SELECT "project"."id" AS "ID" FROM "project" GROUP BY "project"."id" ) AS "Project" LIMIT 25 OFFSET 0 ) q`,
 		},
 		{
 			Model:    make([]SingleSlice, 0),
-			Expected: `SELECT coalesce(jsonb_agg(q),'[]') FROM ( SELECT count(*) OVER() AS TotalRows, coalesce(jsonb_agg( Project ), '[]') AS Project FROM ( SELECT project.id AS "ID" FROM project GROUP BY project.id ) AS Project LIMIT 25 OFFSET 0 ) q`,
+			Expected: `SELECT coalesce(jsonb_agg(q),'[]') FROM ( SELECT count(*) OVER() AS TotalRows, coalesce(jsonb_agg( "Project" ), '[]') AS "Project" FROM ( SELECT "project"."id" AS "ID" FROM "project" GROUP BY "project"."id" ) AS "Project" LIMIT 25 OFFSET 0 ) q`,
 		},
 		{
 			Model:    make([]SingleAnonymous, 0),
-			Expected: `SELECT coalesce(jsonb_agg(q),'[]') FROM ( SELECT count(*) OVER() AS TotalRows, Project."ID" FROM ( SELECT project.id AS "ID" FROM project GROUP BY project.id ) AS Project LIMIT 25 OFFSET 0 ) q`,
+			Expected: `SELECT coalesce(jsonb_agg(q),'[]') FROM ( SELECT count(*) OVER() AS TotalRows, "Project"."ID" FROM ( SELECT "project"."id" AS "ID" FROM "project" GROUP BY "project"."id" ) AS "Project" LIMIT 25 OFFSET 0 ) q`,
 		},
 	}
 

@@ -135,11 +135,11 @@ which results in the following base query:
 ## TODO
 
 - [ ]  CTE
+- [ ]  Aggregate functions like SUM, AVG, MIN, MAX
+- [ ]  sub query support into a single field
+- [ ]  tests
 - [x]  Order by
 - [x]  Specify fields to select
 - [x]  Add option to default to all fields
-- [ ]  Aggregate functions like SUM, AVG, MIN, MAX
-- [ ]  sub query support into a single field
 - [x]  default order by
 - [x]  protected where clause, to force company uuid or other value
-- [ ]  tests
