@@ -18,7 +18,7 @@ func TestWhereClause(t *testing.T) {
 		}).
 		Build()
 
-	expected := `name ILIKE $1 AND age >= $2 OR age IS NULL AND (country = $3 OR city = $4)`
+	expected := `name ~~* $1 AND age >= $2 OR age IS NULL AND (country = $3 OR city = $4)`
 	if expected != whereClause {
 		t.Errorf("expected:\n%s\ngot:\n%s", expected, whereClause)
 	}
@@ -37,7 +37,7 @@ func TestNewConditionBuilder(t *testing.T) {
 		And("number_seven", Equal, 7).
 		Build()
 
-	expected := `name ILIKE $1 AND age >= $2 OR age IS NULL AND (country IN ($3, $4) OR city NOT IN ($5, $6)) AND number_seven = $7`
+	expected := `name ~~* $1 AND age >= $2 OR age IS NULL AND (country IN ($3, $4) OR city NOT IN ($5, $6)) AND number_seven = $7`
 	if expected != whereClause {
 		t.Errorf("expected:\n%s\ngot:\n%s", expected, whereClause)
 	}

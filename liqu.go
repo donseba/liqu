@@ -55,11 +55,11 @@ func New(ctx context.Context, filters *Filters) *Liqu {
 		}
 	}
 
-	if filters.Page >= 0 {
+	if filters.Page <= 0 {
 		filters.Page = DefaultPage
 	}
 
-	if filters.PerPage >= 0 {
+	if filters.PerPage <= 0 {
 		filters.PerPage = DefaultPerPage
 	}
 
