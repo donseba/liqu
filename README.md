@@ -137,7 +137,7 @@ which results in the following base query:
 - [ ]  CTE
 - [x]  Order by
 - [x]  Specify fields to select
-- [ ]  Add option to default to all fields
+- [x]  Add option to default to all fields
 - [ ]  Aggregate functions like SUM, AVG, MIN, MAX
 - [ ]  sub query support into a single field
 - [x]  default order by

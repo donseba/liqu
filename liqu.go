@@ -72,8 +72,10 @@ func New(ctx context.Context, filters *Filters) *Liqu {
 	}
 }
 
-func (l *Liqu) WithDefaults(defaults *Defaults) {
+func (l *Liqu) WithDefaults(defaults *Defaults) *Liqu {
 	l.defaults = defaults
+
+	return l
 }
 
 func (l *Liqu) FromSource(source interface{}) error {
@@ -248,7 +250,7 @@ func (l *Liqu) parseFilters() error {
 		return err
 	}
 
-	err = l.parseSelect(sel)
+	err = l.parseSelect(sel, true)
 	if err != nil {
 		return err
 	}

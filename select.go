@@ -5,9 +5,9 @@ import (
 	"strings"
 )
 
-func (l *Liqu) parseSelect(query string) error {
+func (l *Liqu) parseSelect(query string, reset bool) error {
 	if strings.TrimSpace(query) == "" {
-		query = l.tree.as + ".*"
+		return nil
 	}
 
 	selects := strings.Split(query, ",")
@@ -23,13 +23,12 @@ func (l *Liqu) parseSelect(query string) error {
 			field = parts[1]
 		)
 
-		if field == "*" {
-			for field, _ := range l.registry[model].fieldTypes {
-				l.registry[model].branch.selectedFields[field] = true
-			}
-		} else {
-			l.registry[model].branch.selectedFields[field] = true
+		if reset {
+			l.registry[model].branch.selectedFields = make(map[string]bool)
+			reset = false
 		}
+
+		l.processSelect(model, field)
 	}
 
 	return nil
@@ -66,4 +65,14 @@ func (l *Liqu) selectsWithStructAlias(branch *branch) []string {
 	}
 
 	return out
+}
+
+func (l *Liqu) processSelect(model, field string) {
+	if field == "*" {
+		for field, _ := range l.registry[model].fieldTypes {
+			l.registry[model].branch.selectedFields[field] = true
+		}
+	} else {
+		l.registry[model].branch.selectedFields[field] = true
+	}
 }

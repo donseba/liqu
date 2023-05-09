@@ -4,7 +4,7 @@ type (
 	Defaults struct {
 		where   map[string]defaultWhere
 		orderBy map[string]OrderDirection
-		sel     []string
+		sel     map[string][]string
 	}
 
 	defaultWhere struct {
@@ -18,7 +18,7 @@ func NewDefaults() *Defaults {
 	return &Defaults{
 		where:   make(map[string]defaultWhere),
 		orderBy: make(map[string]OrderDirection),
-		sel:     make([]string, 0),
+		sel:     make(map[string][]string),
 	}
 }
 
@@ -37,14 +37,13 @@ func (d *Defaults) Where(column string, op Operator, value interface{}) *Default
 
 	return d
 }
-func (d *Defaults) Select(column string) *Defaults {
-	for _, v := range d.sel {
-		if v == column {
-			return d
-		}
+
+func (d *Defaults) Select(model string, fields ...string) *Defaults {
+	if d.sel[model] == nil {
+		d.sel[model] = make([]string, 0)
 	}
 
-	d.sel = append(d.sel, column)
+	d.sel[model] = append(d.sel[model], fields...)
 
 	return d
 }
@@ -63,6 +62,14 @@ func (l *Liqu) processDefaults() error {
 			return err
 		}
 	}
+
+	for model, fields := range l.defaults.sel {
+		for _, field := range fields {
+			l.processSelect(model, field)
+		}
+	}
+
+	Debug(l.registry["Project"].branch.selectedFields)
 
 	return nil
 }

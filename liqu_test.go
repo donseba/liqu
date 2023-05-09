@@ -151,7 +151,6 @@ func TestWithWhere(t *testing.T) {
 		Page:    2,
 		PerPage: 25,
 		OrderBy: "Project.Name|ASC,Tags.Name|DESC",
-		Select:  "Project.Description",
 		Where:   "Project.CompanyID|=|overrideCheck,Project.Name|=|Foo",
 	}
 
@@ -159,7 +158,9 @@ func TestWithWhere(t *testing.T) {
 
 	def := NewDefaults().
 		OrderBy("Project.Name", Desc).
-		Where("Project.CompanyID", Equal, "11111111-0000-0000-0000-123456789012")
+		Where("Project.CompanyID", Equal, "11111111-0000-0000-0000-123456789012").
+		Select("Project", "*").
+		Select("Tags", "*")
 
 	li.WithDefaults(def)
 

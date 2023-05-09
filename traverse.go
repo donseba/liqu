@@ -99,7 +99,7 @@ func (l *Liqu) traverseBranch(branch *branch, parent *branch) error {
 
 	for _, v := range branch.joinFields {
 		selects = append(selects, fmt.Sprintf(`'%s', %s.%s`, v.field, v.as, v.field))
-		branch.groupBy.GroupBy(v.field)
+		//branch.groupBy.GroupBy(v.field)
 	}
 
 	branchFieldSelect.setSelect(fmt.Sprintf("jsonb_build_object( %s )", strings.Join(selects, ", "))).setAs(branch.as)
@@ -126,7 +126,7 @@ func (l *Liqu) traverseBranch(branch *branch, parent *branch) error {
 	selectsWithReferences := make([]string, 0)
 	for k, _ := range branch.referencedFields {
 		selectsWithReferences = append(selectsWithReferences, branch.registry.fieldDatabase[k])
-		branch.groupBy.GroupBy(branch.registry.fieldDatabase[k])
+		//branch.groupBy.GroupBy(branch.registry.fieldDatabase[k])
 	}
 
 	selectsWithReferences = append(selectsWithReferences, branchFieldSelect.Scrub())
@@ -134,8 +134,8 @@ func (l *Liqu) traverseBranch(branch *branch, parent *branch) error {
 	base.setSelect(strings.Join(selectsWithReferences, ", ")).
 		setJoin(strings.Join(branch.joinBranched, " ")).
 		setWhere(branch.where.Build()).
-		setOrderBy(branch.order.Build()).
-		setGroupBy(branch.groupBy.Build())
+		setOrderBy(branch.order.Build())
+	//setGroupBy(branch.groupBy.Build())
 
 	if branch.limit != nil {
 		paging := &Filters{
