@@ -9,6 +9,7 @@ import (
 var (
 	rootQuery         = "SELECT :totalRows: :select: FROM ( :from: :where: :groupBy: :orderBy: ) :as: :join: :limit:"
 	baseQuery         = `SELECT :select: FROM ":from:" :as: :join: :where: :groupBy: :orderBy: :limit:`
+	subQuery          = `(SELECT :select: FROM ":from:" WHERE :relation: :where: :groupBy: :orderBy: :limit:)`
 	lateralQuery      = ":direction: JOIN LATERAL ( :query: ) :as: ON true"
 	singleQuery       = "SELECT to_jsonb(q) FROM ( :query: ) q"
 	sliceQuery        = "SELECT coalesce(jsonb_agg(q),'[]') FROM ( :query: ) q"

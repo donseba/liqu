@@ -75,6 +75,7 @@ func (l *Liqu) scan(sourceType reflect.Type, parent *branch) error {
 			groupBy:          NewGroupByBuilder(),
 			selectedFields:   make(map[string]bool),
 			referencedFields: make(map[string]bool),
+			subQuery:         make(map[string]*SubQuery),
 		}
 
 		for _, v := range primaryKeys {
@@ -289,6 +290,7 @@ func (l *Liqu) scanChild(structField reflect.StructField, source Source, parent 
 		offset:           offset,
 		source:           source,
 		referencedFields: make(map[string]bool),
+		subQuery:         make(map[string]*SubQuery),
 		selectedFields:   selectedFields,
 		joinDirection:    joinTag,
 	}

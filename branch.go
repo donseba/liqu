@@ -19,6 +19,7 @@ type (
 		relations        []branchRelation
 		selectedFields   map[string]bool
 		referencedFields map[string]bool
+		subQuery         map[string]*SubQuery
 
 		joinDirection string
 		joinFields    []branchJoinField

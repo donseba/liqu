@@ -7,10 +7,11 @@ import (
 
 type (
 	Project struct {
-		ID          int    `db:"id"`
-		CompanyID   int    `db:"company_id"`
-		Name        string `db:"name"`
-		Description string `db:"description"`
+		ID          int     `db:"id"`
+		CompanyID   int     `db:"company_id"`
+		Name        string  `db:"name"`
+		Description string  `db:"description"`
+		Volume      float64 `db:"volume"`
 	}
 
 	CategoryProject struct {
@@ -165,6 +166,36 @@ func TestWithWhere(t *testing.T) {
 	li.WithDefaults(def)
 
 	tree := make([]Tree, 0)
+
+	err := li.FromSource(tree)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	sqlQuery, sqlParams := li.SQL()
+
+	t.Log(sqlQuery)
+	t.Log(sqlParams)
+}
+
+func TestWithSubQuery(t *testing.T) {
+	filters := &Filters{
+		Page:    2,
+		PerPage: 25,
+		OrderBy: "Project.Name|ASC",
+		Select:  "Project.*",
+	}
+
+	volumeSQ := NewSubQuery("Project", "Volume").
+		Relate("id_project", "ID").
+		Select("SUM(volume)").
+		From("project_time_entry")
+
+	li := New(context.TODO(), filters).
+		WithSubQuery(volumeSQ)
+
+	tree := make([]Single, 0)
 
 	err := li.FromSource(tree)
 	if err != nil {

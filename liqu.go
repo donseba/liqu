@@ -34,6 +34,7 @@ type (
 		registry    map[string]registry
 		filters     *Filters
 		defaults    *Defaults
+		subQueries  []*SubQuery
 
 		sqlQuery  string
 		sqlParams []interface{}
@@ -66,10 +67,11 @@ func New(ctx context.Context, filters *Filters) *Liqu {
 	}
 
 	return &Liqu{
-		ctx:      ctx,
-		registry: make(map[string]registry, 0),
-		filters:  filters,
-		defaults: NewDefaults(),
+		ctx:        ctx,
+		registry:   make(map[string]registry, 0),
+		filters:    filters,
+		defaults:   NewDefaults(),
+		subQueries: make([]*SubQuery, 0),
 	}
 }
 
@@ -108,6 +110,11 @@ func (l *Liqu) FromSource(source interface{}) error {
 	}
 
 	err = l.parseFilters()
+	if err != nil {
+		return err
+	}
+
+	err = l.parseSubQueries()
 	if err != nil {
 		return err
 	}
