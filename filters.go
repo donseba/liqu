@@ -59,6 +59,10 @@ func (f *Filters) LastOnPage() int {
 }
 
 func (f *Filters) First() template.URL {
+	if f.Page <= 1 {
+		return ""
+	}
+
 	uv := url.Values{}
 
 	uv.Set("page", fmt.Sprintf("%v", 1))
@@ -68,11 +72,11 @@ func (f *Filters) First() template.URL {
 }
 
 func (f *Filters) Previous() template.URL {
-	uv := url.Values{}
-
 	if f.Page <= 1 {
 		return ""
 	}
+
+	uv := url.Values{}
 
 	uv.Set("page", fmt.Sprintf("%v", f.Page-1))
 	uv.Set("per_page", fmt.Sprintf("%v", f.PerPage))
@@ -90,11 +94,11 @@ func (f *Filters) Current() template.URL {
 }
 
 func (f *Filters) Next() template.URL {
-	uv := url.Values{}
-
 	if f.Page >= f.totalPages {
 		return ""
 	}
+
+	uv := url.Values{}
 
 	uv.Set("page", fmt.Sprintf("%v", f.Page+1))
 	uv.Set("per_page", fmt.Sprintf("%v", f.PerPage))
@@ -103,11 +107,11 @@ func (f *Filters) Next() template.URL {
 }
 
 func (f *Filters) Last() template.URL {
-	uv := url.Values{}
-
 	if f.Page == f.totalPages {
 		return ""
 	}
+
+	uv := url.Values{}
 
 	uv.Set("page", fmt.Sprintf("%v", f.totalPages))
 	uv.Set("per_page", fmt.Sprintf("%v", f.PerPage))

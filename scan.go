@@ -278,6 +278,7 @@ func (l *Liqu) scanChild(structField reflect.StructField, source Source, parent 
 	}
 
 	currentBranch := &branch{
+		parent:           parent,
 		liqu:             l,
 		root:             parent,
 		slice:            selectFieldSlice,

@@ -4,11 +4,13 @@ type (
 	branch struct {
 		liqu             *Liqu
 		root             *branch
+		parent           *branch
 		slice            bool
 		anonymous        bool
 		as               string
 		name             string
 		where            *ConditionBuilder
+		isSearched       bool
 		order            *OrderBuilder
 		groupBy          *GroupByBuilder
 		source           Source
@@ -45,6 +47,6 @@ type (
 
 const (
 	leftJoin  joinOperator = "LEFT"
-	rightJoin              = "RIGHT"
+	InnerJoin              = "INNER"
 	fullJoin               = "FULL"
 )

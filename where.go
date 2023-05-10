@@ -489,6 +489,7 @@ func (l *Liqu) processWhere(outerOperator Operator, col string, op string, val i
 	operator := Operator(op)
 
 	l.registry[model].branch.selectedFields[field] = true
+	l.registry[model].branch.isSearched = true
 
 	if val != nil {
 		var value interface{}

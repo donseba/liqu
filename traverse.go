@@ -24,10 +24,15 @@ func (l *Liqu) traverse() error {
 		rootFieldSelect.setSelect(strings.Join(l.selectsAsStruct(l.tree), ", "))
 	}
 
+	whereNulls := NewConditionBuilder()
 	for _, v := range l.tree.branches {
 		err := l.traverseBranch(v, l.tree)
 		if err != nil {
 			return err
+		}
+
+		if v.joinDirection == InnerJoin {
+			whereNulls.AndIsNotNull(fmt.Sprintf(`"%s"`, v.as))
 		}
 	}
 
@@ -48,6 +53,7 @@ func (l *Liqu) traverse() error {
 		setAs(l.tree.as).
 		setLimit(l.filters).
 		setWhere(l.tree.where.Build()).
+		setWhereNulls(whereNulls.Build()).
 		setOrderBy(l.tree.order.Build()).
 		setGroupBy(l.tree.groupBy.Build())
 
@@ -99,7 +105,6 @@ func (l *Liqu) traverseBranch(branch *branch, parent *branch) error {
 
 	for _, v := range branch.joinFields {
 		selects = append(selects, fmt.Sprintf(`'%s', "%s"."%s"`, v.field, v.as, v.field))
-		//branch.groupBy.GroupBy(v.field)
 	}
 
 	branchFieldSelect.setSelect(fmt.Sprintf("jsonb_build_object( %s )", strings.Join(selects, ", "))).setAs(branch.as)
@@ -127,16 +132,19 @@ func (l *Liqu) traverseBranch(branch *branch, parent *branch) error {
 	selectsWithReferences := make([]string, 0)
 	for k, _ := range branch.referencedFields {
 		selectsWithReferences = append(selectsWithReferences, branch.registry.fieldDatabase[k])
-		//branch.groupBy.GroupBy(branch.registry.fieldDatabase[k])
 	}
 
 	selectsWithReferences = append(selectsWithReferences, branchFieldSelect.Scrub())
+
+	if branch.isSearched {
+		branch.joinDirection = InnerJoin
+		setParentJoinDirection(parent)
+	}
 
 	base.setSelect(strings.Join(selectsWithReferences, ", ")).
 		setJoin(strings.Join(branch.joinBranched, " ")).
 		setWhere(branch.where.Build()).
 		setOrderBy(branch.order.Build())
-	//setGroupBy(branch.groupBy.Build())
 
 	if branch.limit != nil {
 		filters := &Filters{
@@ -157,4 +165,14 @@ func (l *Liqu) traverseBranch(branch *branch, parent *branch) error {
 	)
 
 	return nil
+}
+
+func setParentJoinDirection(parent *branch) {
+	if parent == nil {
+		return
+	}
+
+	parent.joinDirection = InnerJoin
+
+	setParentJoinDirection(parent.parent)
 }

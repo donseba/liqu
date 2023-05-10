@@ -7,14 +7,14 @@ import (
 )
 
 var (
-	rootQuery         = "SELECT :totalRows: :select: FROM ( :from: :where: :groupBy: :orderBy: ) :as: :join: :limit:"
+	rootQuery         = "SELECT :totalRows: :select: FROM ( :from: :where: :groupBy: :orderBy:) :as: :join: :whereNulls: :limit:"
 	baseQuery         = `SELECT :select: FROM ":from:" :as: :join: :where: :groupBy: :orderBy: :limit:`
 	subQuery          = `(SELECT :select: FROM ":from:" WHERE :relation: :where: :groupBy: :orderBy: :limit:)`
 	lateralQuery      = ":direction: JOIN LATERAL ( :query: ) :as: ON true"
 	singleQuery       = "SELECT to_jsonb(q) FROM ( :query: ) q"
-	sliceQuery        = "SELECT coalesce(jsonb_agg(q),'[]') FROM ( :query: ) q"
+	sliceQuery        = "SELECT jsonb_agg(q) FROM ( :query: ) q"
 	branchSingleQuery = `to_jsonb( :select: ) :as:`
-	branchSliceQuery  = "coalesce(jsonb_agg( :select: ), '[]') :as:"
+	branchSliceQuery  = "jsonb_agg( :select: ) :as:"
 	branchAnonQuery   = ":select:"
 )
 
@@ -103,6 +103,18 @@ func (q *query) setWhere(value string) *query {
 	}
 
 	q.q = strings.Replace(q.q, ":where:", where, 1)
+
+	return q
+}
+
+func (q *query) setWhereNulls(value string) *query {
+	var where string
+
+	if value != "" {
+		where = fmt.Sprintf("WHERE %s ", value)
+	}
+
+	q.q = strings.Replace(q.q, ":whereNulls:", where, 1)
 
 	return q
 }
