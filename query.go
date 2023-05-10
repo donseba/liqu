@@ -11,8 +11,8 @@ var (
 	baseQuery         = `SELECT :select: FROM ":from:" :as: :join: :where: :groupBy: :orderBy: :limit:`
 	subQuery          = `(SELECT :select: FROM ":from:" WHERE :relation: :where: :groupBy: :orderBy: :limit:)`
 	lateralQuery      = ":direction: JOIN LATERAL ( :query: ) :as: ON true"
-	singleQuery       = "SELECT to_jsonb(q) FROM ( :query: ) q"
-	sliceQuery        = "SELECT jsonb_agg(q) FROM ( :query: ) q"
+	singleQuery       = "SELECT coalesce(to_jsonb(q),'{}') FROM ( :query: ) q"
+	sliceQuery        = "SELECT coalesce(jsonb_agg(q),'[]') FROM ( :query: ) q"
 	branchSingleQuery = `to_jsonb( :select: ) :as:`
 	branchSliceQuery  = "jsonb_agg( :select: ) :as:"
 	branchAnonQuery   = ":select:"
