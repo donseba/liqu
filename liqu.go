@@ -26,15 +26,17 @@ type (
 	}
 
 	Liqu struct {
-		ctx         context.Context
-		source      interface{}
-		sourceType  reflect.Type
-		sourceSlice bool
-		tree        *branch
-		registry    map[string]registry
-		filters     *Filters
-		defaults    *Defaults
-		subQueries  []*SubQuery
+		source             interface{}
+		sourceType         reflect.Type
+		sourceSlice        bool
+		tree               *branch
+		registry           map[string]registry
+		linkedCte          map[string][]linkedCte
+		filters            *Filters
+		defaults           *Defaults
+		subQueries         []*SubQuery
+		cte                map[string]*Cte
+		cteBranchedQueries []*CteBranchedQuery
 
 		sqlQuery  string
 		sqlParams []interface{}
@@ -67,8 +69,9 @@ func New(ctx context.Context, filters *Filters) *Liqu {
 	}
 
 	return &Liqu{
-		ctx:        ctx,
 		registry:   make(map[string]registry, 0),
+		linkedCte:  make(map[string][]linkedCte, 0),
+		cte:        make(map[string]*Cte),
 		filters:    filters,
 		defaults:   NewDefaults(),
 		subQueries: make([]*SubQuery, 0),

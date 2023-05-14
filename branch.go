@@ -5,6 +5,7 @@ type (
 		liqu             *Liqu
 		root             *branch
 		parent           *branch
+		isCTE            bool
 		slice            bool
 		anonymous        bool
 		as               string
@@ -32,6 +33,8 @@ type (
 		table string
 		field string
 		as    string
+		cte   bool
+		slice bool
 	}
 
 	branchRelation struct {
@@ -40,6 +43,14 @@ type (
 		externalTable string
 		externalField string
 		parent        bool
+	}
+
+	linkedCte struct {
+		op       Operator
+		cte      *Cte
+		field    string
+		cteField string
+		trigger  linkTrigger
 	}
 
 	joinOperator string

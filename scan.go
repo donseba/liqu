@@ -20,7 +20,7 @@ func (l *Liqu) scan(sourceType reflect.Type, parent *branch) error {
 	// cast source to Source Type
 	source, ok := (reflect.New(sourceType).Interface()).(Source)
 
-	// if we couldn't cast the sourceType we try to cast the first field
+	// if we couldn't cast the sourceType, we try to cast the first field
 	if !ok {
 		// first field type
 		fieldType := sourceType.Field(0).Type
@@ -37,7 +37,7 @@ func (l *Liqu) scan(sourceType reflect.Type, parent *branch) error {
 			return fmt.Errorf("[list] received element does not contain Source, got: %s (name %s) instead", fieldType.Kind(), fieldType.Name())
 		}
 
-		// we are not in to main root anymore,so we need to select the result into a nested object
+		// we are not in to main root anymore, so we need to select the result into a nested object
 		sourceAs = sourceType.Field(0).Name
 	}
 
@@ -129,7 +129,7 @@ func (l *Liqu) structFields(source interface{}) StructFieldInfo {
 
 	// traverse the fields of the current struct
 	for i := 0; i < sourceElem.NumField(); i++ {
-		// check if field is exported
+		// check if the field is exported
 		if !sourceElem.Field(i).IsValid() || !sourceElem.Field(i).CanSet() {
 			continue
 		}
@@ -241,9 +241,7 @@ func (l *Liqu) scanChild(structField reflect.StructField, source Source, parent 
 		selectTag  = structField.Tag.Get("select")
 		orderByTag = structField.Tag.Get("order_by")
 		groupByTag = structField.Tag.Get("group_by")
-		//liquTag    = structField.Tag.Get("liqu")
-		//dbTag      = structField.Tag.Get("db")
-		//whereTag   = structField.Tag.Get("where")
+		liquTag    = structField.Tag.Get("liqu")
 	)
 
 	var (
@@ -263,6 +261,14 @@ func (l *Liqu) scanChild(structField reflect.StructField, source Source, parent 
 		}
 	}
 
+	var isCTE bool
+	if liquTag != "" {
+		switch liquTag {
+		case "cte":
+			isCTE = true
+		}
+	}
+
 	structFields := l.structFields(source)
 	primaryKeys := l.primaryKeys(structFields.fieldDatabase, source)
 	if joinTag == "" {
@@ -277,8 +283,13 @@ func (l *Liqu) scanChild(structField reflect.StructField, source Source, parent 
 		}
 	}
 
+	if selectFieldName == "" {
+		selectFieldName = source.Table()
+	}
+
 	currentBranch := &branch{
 		parent:           parent,
+		isCTE:            isCTE,
 		liqu:             l,
 		root:             parent,
 		slice:            selectFieldSlice,
@@ -355,7 +366,7 @@ func (l *Liqu) primaryKeys(structFields map[string]string, source Source) []stri
 	return out
 }
 
-var relatedRegex = regexp.MustCompile(`([a-zA-Z]+).([a-zA-Z.]+)(=|<>|<=|>=|<|>)([a-zA-Z]+).([a-zA-Z.]+)`)
+var relatedRegex = regexp.MustCompile(`([a-zA-Z_]+)\.([a-zA-Z_]+)(=|<>|<=|>=|<|>)([a-zA-Z_]+)\.([a-zA-Z_]+)`)
 
 func (l *Liqu) parseRelated(tag string, branch *branch, parent *branch) error {
 	relations := make([]branchRelation, 0)
@@ -375,7 +386,7 @@ func (l *Liqu) parseRelated(tag string, branch *branch, parent *branch) error {
 			leftTable, leftField, operator, rightTable, rightField = match[1], match[2], match[3], match[4], match[5]
 		)
 
-		// if the current branch is not on the left check if it is on the right and swap it if so
+		// if the current branch is not on the left, check if it is on the right and swap it if so
 		if leftTable != branch.as {
 			if rightTable == branch.as {
 				rightTable, rightField, leftTable, leftField = leftTable, leftField, rightTable, rightField

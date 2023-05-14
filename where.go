@@ -465,26 +465,43 @@ func (l *Liqu) parseNestedConditions(query string, cb *ConditionBuilder, outerOp
 
 func (l *Liqu) processWhere(outerOperator Operator, col string, op string, val interface{}, protect bool) error {
 	var (
-		model  string
-		field  string
-		column string
+		cteTable string
+		model    string
+		field    string
+		column   string
 	)
 
 	if strings.Contains(col, ".") {
 		el := strings.Split(col, ".")
 		model = el[0]
 		field = el[1]
+
+		if strings.Contains(model, "--") {
+			cp := strings.Split(model, "--")
+			model = cp[0]
+			cteTable = cp[1]
+		}
 	} else {
 		model = l.tree.as
 		field = col
 	}
 
 	var ok bool
+
 	if column, ok = l.registry[model].fieldDatabase[field]; !ok {
 		return fmt.Errorf("invalid search field %s", col)
 	}
 
-	column = fmt.Sprintf(`"%s"."%s"`, l.registry[model].tableName, column)
+	if l.registry[model].branch.isCTE {
+		if cteTable == "" {
+			return fmt.Errorf("provide cteTable for cte search %s", col)
+		}
+
+		l.cte[model].isSearched = true
+		column = fmt.Sprintf(`"%s"."%s"`, l.registry[model].tableName, column)
+	} else {
+		column = fmt.Sprintf(`"%s"."%s"`, l.registry[model].tableName, column)
+	}
 
 	operator := Operator(op)
 

@@ -26,12 +26,24 @@ func (l *Liqu) traverse() error {
 
 	whereNulls := NewConditionBuilder()
 	for _, v := range l.tree.branches {
-		err := l.traverseBranch(v, l.tree)
-		if err != nil {
-			return err
+		// if it is a Cte, we branch of and threat it as a root element with no parent.
+		if v.isCTE {
+			cte, err := l.traverseCteBranch(v, l.tree)
+			if err != nil {
+				return err
+			}
+			l.cteBranchedQueries = append(l.cteBranchedQueries, &CteBranchedQuery{
+				As:    v.as,
+				Query: cte,
+			})
+		} else {
+			err := l.traverseBranch(v, l.tree)
+			if err != nil {
+				return err
+			}
 		}
 
-		if v.joinDirection == InnerJoin {
+		if v.joinDirection == InnerJoin && !v.isCTE {
 			whereNulls.AndIsNotNull(fmt.Sprintf(`"%s"`, v.as))
 		}
 	}
@@ -44,8 +56,36 @@ func (l *Liqu) traverse() error {
 
 	rootSelects := []string{rootFieldSelect.Scrub()}
 
+	cteGroupBy := NewGroupByBuilder()
+
+	var hasSubCTE bool
 	for _, v := range l.tree.joinFields {
-		rootSelects = append(rootSelects, fmt.Sprintf(`"%s"."%s" AS "%s"`, v.as, v.field, v.field))
+		if v.cte {
+			subCTE := newBranchSingle().setAs(fmt.Sprintf(`"%s"`, v.field))
+			if v.slice {
+				subCTE = newBranchSlice().setAs(v.field)
+				cteGroupBy.GroupBy(fmt.Sprintf(`"%s"`, l.tree.as))
+			}
+			rootSelects = append(rootSelects, subCTE.setSelect(fmt.Sprintf(`"%s"`, v.field)).Scrub())
+			hasSubCTE = true
+		} else {
+			rootSelects = append(rootSelects, fmt.Sprintf(`"%s"."%s" AS "%s"`, v.as, v.field, v.field))
+		}
+	}
+
+	if cte, ok := l.linkedCte[l.tree.as]; ok {
+		for _, v := range cte {
+			l.matchCTEWithBranch(l.tree, v)
+		}
+	}
+
+	if hasSubCTE {
+		for _, v := range l.tree.branches {
+			if v.isCTE {
+				continue
+			}
+			cteGroupBy.GroupBy(fmt.Sprintf(`"%s"`, v.as))
+		}
 	}
 
 	root.setSelect(strings.Join(rootSelects, ", ")).
@@ -55,7 +95,8 @@ func (l *Liqu) traverse() error {
 		setWhere(l.tree.where.Build()).
 		setWhereNulls(whereNulls.Build()).
 		setOrderBy(l.tree.order.Build()).
-		setGroupBy(l.tree.groupBy.Build())
+		setGroupBy(l.tree.groupBy.Build()).
+		setGroupByCTE(cteGroupBy.Build())
 
 	var wrapper *query
 	if l.sourceSlice {
@@ -64,7 +105,16 @@ func (l *Liqu) traverse() error {
 		wrapper = newSingleQuery()
 	}
 
-	l.sqlQuery = wrapper.setQuery(root.Scrub()).Scrub()
+	var cteQueries []string
+	for _, v := range l.cteBranchedQueries {
+		cteQueries = append(cteQueries, newCteQuery().setWith(v.As).setQuery(v.Query).Scrub())
+	}
+
+	for as, cte := range l.cte {
+		cteQueries = append(cteQueries, newCteQuery().setWith(as).setQuery(cte.Build()).Scrub())
+	}
+
+	l.sqlQuery = wrapper.setCTE(strings.Join(cteQueries, ", ")).setQuery(root.Scrub()).Scrub()
 
 	return nil
 }
@@ -141,10 +191,20 @@ func (l *Liqu) traverseBranch(branch *branch, parent *branch) error {
 		setParentJoinDirection(parent)
 	}
 
+	if cte, ok := l.linkedCte[branch.as]; ok {
+		for _, v := range cte {
+			l.matchCTEWithBranch(branch, v)
+		}
+	}
+
 	base.setSelect(strings.Join(selectsWithReferences, ", ")).
 		setJoin(strings.Join(branch.joinBranched, " ")).
 		setWhere(branch.where.Build()).
 		setOrderBy(branch.order.Build())
+
+	if branch.parent.isCTE {
+		base.setGroupBy(branch.groupBy.Build())
+	}
 
 	if branch.limit != nil {
 		filters := &Filters{
@@ -167,6 +227,7 @@ func (l *Liqu) traverseBranch(branch *branch, parent *branch) error {
 	return nil
 }
 
+// if we start to search within a relation, we want to make sure we only return the rows having these results.
 func setParentJoinDirection(parent *branch) {
 	if parent == nil {
 		return
@@ -175,4 +236,26 @@ func setParentJoinDirection(parent *branch) {
 	parent.joinDirection = InnerJoin
 
 	setParentJoinDirection(parent.parent)
+}
+
+func (l *Liqu) matchCTEWithBranch(branch *branch, linkedCte linkedCte) {
+	switch linkedCte.trigger {
+	case LinkSearch:
+		if linkedCte.cte.isSearched {
+			l.applyCTEonBranch(branch, linkedCte)
+		}
+	case LinkAlways:
+		l.applyCTEonBranch(branch, linkedCte)
+	}
+}
+
+func (l *Liqu) applyCTEonBranch(branch *branch, linkedCte linkedCte) {
+	baseQuery := newBaseQuery()
+
+	switch linkedCte.op {
+	case In:
+		baseQuery.setFrom(linkedCte.cte.as).setSelect("*")
+		branch.where.AndRaw(fmt.Sprintf(`%s.%s IN (%s)`, branch.source.Table(), branch.registry.fieldDatabase[linkedCte.field], baseQuery.Scrub()))
+	}
+
 }

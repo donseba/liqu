@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/donseba/liqu"
 	"log"
 )
@@ -26,9 +27,9 @@ type (
 	}
 
 	ArticleList struct {
-		Article  Article
-		Author   Author   `join:"right" related:"Author.ID=Article.AuthorID"`
-		Category Category `join:"left" related:"Category.ID=Article.CategoryID"`
+		Article    Article
+		Author     Author     `join:"right" related:"Author.ID=Article.AuthorID"`
+		Categories []Category `liqu:"cte" join:"left" related:"Categories.ID=Article.CategoryID"`
 	}
 )
 
@@ -49,7 +50,7 @@ func (m *Author) PrimaryKeys() []string {
 }
 
 func (m *Category) Table() string {
-	return "author"
+	return "category"
 }
 
 func (m *Category) PrimaryKeys() []string {
@@ -57,16 +58,28 @@ func (m *Category) PrimaryKeys() []string {
 }
 
 func main() {
+	// initiate a slice of the object to process
 	list := make([]ArticleList, 0)
 
-	li := liqu.New(context.TODO(), nil)
+	// define defaults to be used for the query
+	def := liqu.NewDefaults().
+		OrderBy("Article.Title", liqu.Asc).
+		Select("Article", "*").
+		Select("Author", "*").
+		Select("Categories", "*")
 
+	// initiate a new instance of liqu
+	li := liqu.New(context.TODO(), nil).
+		WithDefaults(def)
+
+	// pass the object to liqu and all magic happens here
 	err := li.FromSource(&list)
 	if err != nil {
 		log.Fatal(err)
 		return
 	}
 
+	// get the SQL Query and SQL Params
 	sqlQuery, sqlParams := li.SQL()
 	liqu.Debug(sqlQuery, sqlParams)
 
@@ -74,9 +87,20 @@ func main() {
 	// now you can pass the sqlQuery and sqlParams to your favorite sql executor.
 	// result = sql.SelectString(sqlQuery, sqlParams...)
 
+	// the PostProcess method helps to filter out the row count
+	// and removes it from the json all together
 	result = li.PostProcess(result)
 
-	// after the PostProcess you kan fetch the paging params from the filters
-	filters := li.Filters()
-	liqu.Debug(filters)
+	// after the PostProcess you kan fetch the paging params
+	listFilters := li.Filters()
+	liqu.Debug(listFilters)
+
+	// at this point, the result is a valid JSON string which
+	// can be used as api output. the json only contains the selected fields.
+	// alternatively, you can marshal the json back in the original struct.
+	err = json.Unmarshal([]byte(result), &list)
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
 }

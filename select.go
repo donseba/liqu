@@ -11,7 +11,6 @@ func (l *Liqu) parseSelect(query string, reset bool) error {
 	}
 
 	selects := strings.Split(query, ",")
-
 	for _, sel := range selects {
 		parts := strings.Split(sel, ".")
 		if len(parts) != 2 {
@@ -25,6 +24,9 @@ func (l *Liqu) parseSelect(query string, reset bool) error {
 
 		if reset {
 			l.registry[model].branch.selectedFields = make(map[string]bool)
+			for _, v := range l.registry[model].branch.source.PrimaryKeys() {
+				l.registry[model].branch.selectedFields[v] = true
+			}
 			reset = false
 		}
 
@@ -45,6 +47,17 @@ func (l *Liqu) selectsAsStruct(branch *branch) []string {
 	return out
 }
 
+func (l *Liqu) selectsWithAlias(branch *branch) []string {
+	var out []string
+
+	for field, _ := range branch.selectedFields {
+		out = append(out, fmt.Sprintf(`"%s"."%s" AS "%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field], field))
+		branch.groupBy.GroupBy(fmt.Sprintf(`"%s"."%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field]))
+	}
+
+	return out
+}
+
 func (l *Liqu) selectsAsObjectPair(branch *branch) []string {
 	var out []string
 
@@ -57,9 +70,28 @@ func (l *Liqu) selectsAsObjectPair(branch *branch) []string {
 }
 
 func (l *Liqu) selectsWithStructAlias(branch *branch) []string {
-	var out []string
+	var (
+		fields = make(map[string]bool)
+		out    []string
+	)
 
 	for field, _ := range branch.selectedFields {
+		if subQ, ok := branch.subQuery[field]; ok {
+			subQ.And(fmt.Sprintf(`%s.%s="%s"."%s"`, subQ.from, subQ.fieldLocal, branch.source.Table(), l.registry[branch.as].fieldDatabase[subQ.fieldParent]))
+			out = append(out, fmt.Sprintf(`(%s) AS "%s"`, subQ.Build(), field))
+		} else {
+			out = append(out, fmt.Sprintf(`"%s"."%s" AS "%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field], field))
+			branch.groupBy.GroupBy(fmt.Sprintf(`"%s"."%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field]))
+		}
+
+		fields[field] = true
+	}
+
+	for field, _ := range branch.referencedFields {
+		if _, ok := fields[field]; ok {
+			continue
+		}
+
 		if subQ, ok := branch.subQuery[field]; ok {
 			subQ.And(fmt.Sprintf(`%s.%s="%s"."%s"`, subQ.from, subQ.fieldLocal, branch.source.Table(), l.registry[branch.as].fieldDatabase[subQ.fieldParent]))
 			out = append(out, fmt.Sprintf(`(%s) AS "%s"`, subQ.Build(), field))

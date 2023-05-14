@@ -7,15 +7,15 @@ import (
 )
 
 var (
-	rootQuery         = "SELECT :totalRows: :select: FROM ( :from: :where: :groupBy: :orderBy:) :as: :join: :whereNulls: :limit:"
+	rootQuery         = `SELECT :totalRows: :select: FROM ( :from: :where: :groupBy: :orderBy:) :as: :join: :whereNulls: :groupByCTE: :limit:`
 	baseQuery         = `SELECT :select: FROM ":from:" :as: :join: :where: :groupBy: :orderBy: :limit:`
-	subQuery          = `(SELECT :select: FROM ":from:" WHERE :relation: :where: :groupBy: :orderBy: :limit:)`
-	lateralQuery      = ":direction: JOIN LATERAL ( :query: ) :as: ON true"
-	singleQuery       = "SELECT coalesce(to_jsonb(q),'{}') FROM ( :query: ) q"
-	sliceQuery        = "SELECT coalesce(jsonb_agg(q),'[]') FROM ( :query: ) q"
+	lateralQuery      = `:direction: JOIN LATERAL ( :query: ) :as: ON true`
+	singleQuery       = `:cteBranchedQueries: SELECT coalesce(to_jsonb(q),'{}') FROM ( :query: ) q`
+	sliceQuery        = `:cteBranchedQueries: SELECT coalesce(jsonb_agg(q),'[]') FROM ( :query: ) q`
 	branchSingleQuery = `to_jsonb( :select: ) :as:`
-	branchSliceQuery  = "jsonb_agg( :select: ) :as:"
-	branchAnonQuery   = ":select:"
+	branchSliceQuery  = `COALESCE(jsonb_agg( :select: ) FILTER ( WHERE :select: IS NOT NULL ),'[]' )  :as:`
+	branchAnonQuery   = `:select:`
+	cteQuery          = `:with: AS ( :query: )`
 )
 
 type (
@@ -54,6 +54,12 @@ func newLateralQuery() *query {
 	}
 }
 
+func newCteQuery() *query {
+	return &query{
+		q: cteQuery,
+	}
+}
+
 func newBranchSingle() *query {
 	return &query{
 		q: branchSingleQuery,
@@ -73,7 +79,17 @@ func newBranchAnon() *query {
 }
 
 func (q *query) setSelect(value string) *query {
-	q.q = strings.Replace(q.q, ":select:", value, 1)
+	q.q = strings.Replace(q.q, ":select:", value, -1)
+
+	return q
+}
+
+func (q *query) setCTE(value string) *query {
+	cte := ""
+	if value != "" {
+		cte = fmt.Sprintf("WITH %s", value)
+	}
+	q.q = strings.Replace(q.q, ":cteBranchedQueries:", cte, 1)
 
 	return q
 }
@@ -135,6 +151,16 @@ func (q *query) setGroupBy(gb string) *query {
 
 	return q
 }
+func (q *query) setGroupByCTE(gb string) *query {
+	str := ""
+	if gb != "" {
+		str = fmt.Sprintf("GROUP BY %s", gb)
+	}
+
+	q.q = strings.Replace(q.q, ":groupByCTE:", str, 1)
+
+	return q
+}
 
 func (q *query) setOrderBy(ob string) *query {
 	str := ""
@@ -173,6 +199,17 @@ func (q *query) setAs(as string) *query {
 	}
 
 	q.q = strings.Replace(q.q, ":as:", as, 1)
+
+	return q
+}
+
+func (q *query) setWith(as string) *query {
+	as = strings.TrimSpace(as)
+	if as != "" {
+		as = fmt.Sprintf(`"%s"`, as)
+	}
+
+	q.q = strings.Replace(q.q, ":with:", as, 1)
 
 	return q
 }
