@@ -1,3 +1,7 @@
+## what is this not 
+- liqu is no ORM
+- liqu is not a full fledged query builder like goqu
+
 # liqu
 
 - is short for *List Query*
@@ -9,6 +13,8 @@
 ## Note 
 Liqu is in an early phase, and the API might change over time.
 However, the goal is to build the initial main release around the current API and push out a first stable release.
+
+
 
 ## Interface
 
@@ -184,15 +190,15 @@ FROM (
 
 ## TODO
 
-- [ ]  CTE
-- [ ]  Aggregate functions like SUM, AVG, MIN, MAX
+- [x]  CTE (EXPERIMENTAL: see notes below)
+- [ ]  Aggregate functions like SUM, AVG, MIN, MAX (it is however possible with a sub query )
 - [ ]  tests
 - [x]  sub query support into a single field
 - [x]  Order by
 - [x]  Specify fields to select
 - [x]  Add option to default to all fields
 - [x]  default order by
-- [x]  protected where clause, to force company uuid or other value
+- [x]  protected where clause to force company uuid or other value to scope the results
 
 ## About 
 liqu is born from the need to be able to quickly create paginated results with filtering capabilities.
@@ -202,6 +208,19 @@ and during my 8 years we made 3 iterations which all where pretty similar to eac
 Building this one from scratch with new insights and knowledge was a fun project.
 According to by knowledge, there is no tool available in the golang ecosystem which can do this.
 
-Some coding styles and usages are inspired by Doug Martin's goqu package. 
+Some syntax is inspired by Doug Martin's goqu package. 
 
 There are obviously some limitations to what this can and cannot do, mainly because I didn't have a use case for it. 
+
+## Limitations 
+- Each node needs to be unique regardless of the level in the node level. I.E. sportsArticles with authors and economicsArticles with authors should become sportAuthors and economicAuthors.
+
+## Experimental CTE 
+There is a limited CTE support implemented on root level at the moment as experiment
+
+```go
+	type SingleWithCTE struct {
+		Project     Project
+		ProjectTags []ProjectTag `liqu:"cte" related:"ProjectTags.ProjectID=Project.ID" join:"left"`
+	}
+```

@@ -36,8 +36,7 @@ type (
 	Tree struct {
 		Project Project
 
-		ProjectTags []ProjectTag `related:"ProjectTags.ProjectID=Project.ID" join:"left" limit:"1" offset:"0"`
-		//ProjectCategories []CategoryProject `related:"ProjectCategories.ProjectID=Project.ID"`
+		ProjectTags []ProjectTag `related:"ProjectTags.ProjectID=Project.ID" join:"left"`
 	}
 )
 
@@ -101,6 +100,12 @@ type (
 	SingleAnonymous struct {
 		Project
 	}
+
+	SingleWithCTE struct {
+		Project Project
+
+		ProjectTags []ProjectTag `liqu:"cteBranchedQueries" related:"ProjectTags.ProjectID=Project.ID" join:"left"`
+	}
 )
 
 func TestWithoutJoins(t *testing.T) {
@@ -114,7 +119,7 @@ func TestWithoutJoins(t *testing.T) {
 		},
 		{
 			Model:    make([]SingleSlice, 0),
-			Expected: `SELECT coalesce(jsonb_agg(q),'[]') FROM ( SELECT count(*) OVER() AS TotalRows, jsonb_agg( "Project" ) AS "Project" FROM ( SELECT "project"."id" AS "ID" FROM "project" GROUP BY "project"."id" ) AS "Project" LIMIT 25 OFFSET 0 ) q`,
+			Expected: `SELECT coalesce(jsonb_agg(q),'[]') FROM ( SELECT count(*) OVER() AS TotalRows, COALESCE(jsonb_agg( "Project" ) FILTER ( WHERE "Project" IS NOT NULL ),'[]' ) AS "Project" FROM ( SELECT "project"."id" AS "ID" FROM "project" GROUP BY "project"."id" ) AS "Project" LIMIT 25 OFFSET 0 ) q`,
 		},
 		{
 			Model:    make([]SingleAnonymous, 0),
@@ -196,6 +201,37 @@ func TestWithSubQuery(t *testing.T) {
 		WithSubQuery(volumeSQ)
 
 	tree := make([]Single, 0)
+
+	err := li.FromSource(tree)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	sqlQuery, sqlParams := li.SQL()
+
+	t.Log(sqlQuery)
+	t.Log(sqlParams)
+}
+
+func TestWithCTE(t *testing.T) {
+	filters := &Filters{
+		Page:    1,
+		PerPage: 25,
+		OrderBy: "Project.Name|ASC",
+		Select:  "Project.Name",
+	}
+
+	def := NewDefaults().
+		OrderBy("Project.Name", Desc).
+		//Where("Project.CompanyID", Equal, "11111111-0000-0000-0000-000000000000").
+		//Where("ProjectTags.TagID", Equal, "12345678-0000-0000-0000-FAKETAGID000").
+		Select("Project", "*").
+		Select("Tags", "*")
+
+	li := New(context.TODO(), filters).WithDefaults(def)
+
+	tree := make([]SingleWithCTE, 0)
 
 	err := li.FromSource(tree)
 	if err != nil {
