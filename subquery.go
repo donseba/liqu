@@ -64,6 +64,12 @@ func (sq *SubQuery) From(from string) *SubQuery {
 	return sq
 }
 
+func (sq *SubQuery) As(as string) *SubQuery {
+	sq.from = as
+	sq.query.setAs(as)
+	return sq
+}
+
 func (sq *SubQuery) GroupBy(gb string) *SubQuery {
 	sq.query.setGroupBy(gb)
 	return sq
