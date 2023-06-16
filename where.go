@@ -82,6 +82,8 @@ func (cb *ConditionBuilder) Condition(op Operator, value interface{}) *Condition
 		}
 
 		return cb.multiValueCondition(cb.column, op, values)
+	} else if op == In || op == NotIn || op == Any || op == NotAny {
+		return cb.multiValueCondition(cb.column, op, []interface{}{value})
 	}
 
 	if value == nil {
@@ -270,7 +272,10 @@ func (cb *ConditionBuilder) multiValueCondition(column string, op Operator, valu
 	condition := fmt.Sprintf("%s %s (%s)", column, op, strings.Join(placeholders, ", "))
 	cb.conditions = append(cb.conditions, condition)
 	cb.args = append(cb.args, values...)
-
+	if cb.liqu != nil {
+		cb.liqu.sqlParams = append(cb.liqu.sqlParams, values...)
+	}
+	
 	return cb
 }
 

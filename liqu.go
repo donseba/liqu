@@ -194,6 +194,7 @@ func ParseUrlValuesToFilters(values url.Values) (*Filters, error) {
 	filters := &Filters{
 		Page:    DefaultPage,
 		PerPage: DefaultPerPage,
+		PushUrl: true,
 	}
 
 	if selectQuery, ok := values["select"]; ok {
@@ -232,6 +233,13 @@ func ParseUrlValuesToFilters(values url.Values) (*Filters, error) {
 			}
 
 			filters.PerPage = perPageInt
+		}
+	}
+
+	if pushUrlQuery, ok := values["push_url"]; ok {
+		if len(pushUrlQuery) > 0 {
+			pushURL, _ := strconv.ParseBool(pushUrlQuery[0])
+			filters.PushUrl = pushURL
 		}
 	}
 

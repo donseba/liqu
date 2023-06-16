@@ -17,6 +17,7 @@ type (
 		Where         string
 		OrderBy       string
 		Select        string
+		PushUrl       bool
 	}
 
 	Range struct {
@@ -157,6 +158,12 @@ func (f *Filters) params(query url.Values) template.URL {
 
 	if strings.TrimSpace(f.Select) != "" {
 		query.Set("select", f.Select)
+	}
+
+	if f.PushUrl {
+		query.Set("push_url", "true")
+	} else {
+		query.Set("push_url", "false")
 	}
 
 	return template.URL(query.Encode())
