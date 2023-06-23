@@ -1,12 +1,16 @@
 package liqu
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type (
 	SubQuery struct {
 		model       string
 		field       string
 		from        string
+		joins       []string
 		fieldLocal  string
 		fieldParent string
 		query       *query
@@ -58,9 +62,20 @@ func (sq *SubQuery) Select(sel string) *SubQuery {
 	return sq
 }
 
+func (sq *SubQuery) SelectAggregate(funcName, field, alias string) *SubQuery {
+	sq.query.setSelect(fmt.Sprintf("%s(%s) AS %s", funcName, field, alias))
+	return sq
+}
+
 func (sq *SubQuery) From(from string) *SubQuery {
 	sq.from = from
 	sq.query.setFrom(from)
+	return sq
+}
+
+func (sq *SubQuery) Join(joinTable, condition, joinType string) *SubQuery {
+	join := fmt.Sprintf("%s JOIN %s ON %s", strings.ToUpper(joinType), joinTable, condition)
+	sq.joins = append(sq.joins, join)
 	return sq
 }
 
@@ -90,6 +105,10 @@ func (sq *SubQuery) Limit(limit int) *SubQuery {
 
 func (sq *SubQuery) Build() string {
 	sq.query.setWhere(sq.conditions.Build())
+
+	if len(sq.joins) > 0 {
+		sq.query.setJoin(strings.Join(sq.joins, " "))
+	}
 
 	return sq.query.Scrub()
 }

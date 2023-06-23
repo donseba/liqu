@@ -180,7 +180,7 @@ func (l *Liqu) traverseBranch(branch *branch, parent *branch) error {
 	}
 
 	selectsWithReferences := make([]string, 0)
-	for k, _ := range branch.referencedFields {
+	for k := range branch.referencedFields {
 		selectsWithReferences = append(selectsWithReferences, branch.registry.fieldDatabase[k])
 	}
 
@@ -255,7 +255,6 @@ func (l *Liqu) applyCTEonBranch(branch *branch, linkedCte linkedCte) {
 	switch linkedCte.op {
 	case In:
 		baseQuery.setFrom(linkedCte.cte.as).setSelect("*")
-		branch.where.AndRaw(fmt.Sprintf(`%s.%s IN (%s)`, branch.source.Table(), branch.registry.fieldDatabase[linkedCte.field], baseQuery.Scrub()))
+		branch.where.AndRaw(fmt.Sprintf(`"%s"."%s" IN (%s)`, branch.source.Table(), branch.registry.fieldDatabase[linkedCte.field], baseQuery.Scrub()))
 	}
-
 }

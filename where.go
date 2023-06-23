@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -263,6 +264,22 @@ func (cb *ConditionBuilder) AndNotAny(column string, values ...interface{}) *Con
 }
 
 func (cb *ConditionBuilder) multiValueCondition(column string, op Operator, values []interface{}) *ConditionBuilder {
+	if op == Any || op == NotAny {
+		cb.counter++
+		placeholder := fmt.Sprintf("$%d", cb.counter)
+
+		condition := fmt.Sprintf("%s && %s", column, placeholder)
+		if op == NotAny {
+			condition = fmt.Sprintf("NOT(%s && %s)", column, placeholder)
+		}
+		cb.conditions = append(cb.conditions, condition)
+		cb.args = append(cb.args, values)
+		if cb.liqu != nil {
+			cb.liqu.sqlParams = append(cb.liqu.sqlParams, array(values))
+		}
+		return cb
+	}
+
 	placeholders := make([]string, len(values))
 	for i := range values {
 		cb.counter++
@@ -275,7 +292,7 @@ func (cb *ConditionBuilder) multiValueCondition(column string, op Operator, valu
 	if cb.liqu != nil {
 		cb.liqu.sqlParams = append(cb.liqu.sqlParams, values...)
 	}
-	
+
 	return cb
 }
 
@@ -549,4 +566,42 @@ func (cb *ConditionBuilder) ProtectColumn(column string) *ConditionBuilder {
 	}
 	cb.protectedColumns[column] = true
 	return cb
+}
+
+type array []interface{}
+
+func (a array) Value() (string, error) {
+	if len(a) == 0 {
+		return "{}", nil
+	}
+
+	result := make([]string, len(a))
+	for i, v := range a {
+		str, ok := v.(string)
+		if !ok {
+			return "", fmt.Errorf("unsupported type: %T", v)
+		}
+
+		// Try int
+		if _, err := strconv.ParseInt(str, 10, 64); err == nil {
+			result[i] = str
+			continue
+		}
+
+		// Try float
+		if _, err := strconv.ParseFloat(str, 64); err == nil {
+			result[i] = str
+			continue
+		}
+
+		// Try bool
+		if _, err := strconv.ParseBool(str); err == nil {
+			result[i] = str
+			continue
+		}
+
+		// If all else fails, treat as string
+		result[i] = "'" + strings.Replace(str, "'", "''", -1) + "'"
+	}
+	return "{" + strings.Join(result, ",") + "}", nil
 }

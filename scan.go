@@ -60,6 +60,14 @@ func (l *Liqu) scan(sourceType reflect.Type, parent *branch) error {
 			sourceName = structFields.selectAs
 		}
 
+		// get the structTags
+		mainTag := sourceType.Field(0).Tag
+
+		where := NewConditionBuilder().setLiqu(l)
+		if mainTag.Get("whereRaw") != "" {
+			where = where.AndRaw(mainTag.Get("whereRaw"))
+		}
+
 		// set the root branch
 		l.tree = &branch{
 			liqu:             l,
@@ -70,7 +78,7 @@ func (l *Liqu) scan(sourceType reflect.Type, parent *branch) error {
 			name:             sourceName,
 			source:           source,
 			branches:         make([]*branch, 0),
-			where:            NewConditionBuilder().setLiqu(l),
+			where:            where,
 			order:            NewOrderBuilder(),
 			groupBy:          NewGroupByBuilder(),
 			selectedFields:   make(map[string]bool),

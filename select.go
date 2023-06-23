@@ -39,7 +39,7 @@ func (l *Liqu) parseSelect(query string, reset bool) error {
 func (l *Liqu) selectsAsStruct(branch *branch) []string {
 	var out []string
 
-	for field, _ := range branch.selectedFields {
+	for field := range branch.selectedFields {
 		out = append(out, fmt.Sprintf(`"%s"."%s"`, branch.name, field))
 		branch.groupBy.GroupBy(fmt.Sprintf(`"%s"."%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field]))
 	}
@@ -50,7 +50,7 @@ func (l *Liqu) selectsAsStruct(branch *branch) []string {
 func (l *Liqu) selectsWithAlias(branch *branch) []string {
 	var out []string
 
-	for field, _ := range branch.selectedFields {
+	for field := range branch.selectedFields {
 		out = append(out, fmt.Sprintf(`"%s"."%s" AS "%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field], field))
 		branch.groupBy.GroupBy(fmt.Sprintf(`"%s"."%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field]))
 	}
@@ -61,7 +61,7 @@ func (l *Liqu) selectsWithAlias(branch *branch) []string {
 func (l *Liqu) selectsAsObjectPair(branch *branch) []string {
 	var out []string
 
-	for field, _ := range branch.selectedFields {
+	for field := range branch.selectedFields {
 		out = append(out, fmt.Sprintf(`'%s'`, field), fmt.Sprintf(`"%s"."%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field]))
 		branch.groupBy.GroupBy(fmt.Sprintf(`"%s"."%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field]))
 	}
@@ -75,7 +75,7 @@ func (l *Liqu) selectsWithStructAlias(branch *branch) []string {
 		out    []string
 	)
 
-	for field, _ := range branch.selectedFields {
+	for field := range branch.selectedFields {
 		if subQ, ok := branch.subQuery[field]; ok {
 			subQ.And(fmt.Sprintf(`%s.%s="%s"."%s"`, subQ.from, subQ.fieldLocal, branch.source.Table(), l.registry[branch.as].fieldDatabase[subQ.fieldParent]))
 			out = append(out, fmt.Sprintf(`(%s) AS "%s"`, subQ.Build(), field))
@@ -87,7 +87,7 @@ func (l *Liqu) selectsWithStructAlias(branch *branch) []string {
 		fields[field] = true
 	}
 
-	for field, _ := range branch.referencedFields {
+	for field := range branch.referencedFields {
 		if _, ok := fields[field]; ok {
 			continue
 		}
@@ -106,7 +106,7 @@ func (l *Liqu) selectsWithStructAlias(branch *branch) []string {
 
 func (l *Liqu) processSelect(model, field string) {
 	if field == "*" {
-		for field, _ := range l.registry[model].fieldTypes {
+		for field := range l.registry[model].fieldTypes {
 			l.registry[model].branch.selectedFields[field] = true
 		}
 	} else {

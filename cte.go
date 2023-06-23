@@ -134,7 +134,7 @@ func (cte *Cte) Build() string {
 		selectClause = strings.Join(cte.selects, ", ")
 	}
 
-	q := fmt.Sprintf("SELECT %s FROM %s", selectClause, cte.baseTable)
+	q := fmt.Sprintf(`SELECT %s FROM "%s"`, selectClause, cte.baseTable)
 	if len(cte.joins) > 0 {
 		q += " " + strings.Join(cte.joins, " ")
 	}
