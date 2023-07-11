@@ -51,7 +51,12 @@ func (l *Liqu) selectsWithAlias(branch *branch) []string {
 	var out []string
 
 	for field := range branch.selectedFields {
-		out = append(out, fmt.Sprintf(`"%s"."%s" AS "%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field], field))
+		selectField := fmt.Sprintf(`"%s"."%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field])
+		if _, ok := branch.distinctFields[field]; ok {
+			selectField = fmt.Sprintf(`DISTINCT(%s)`, selectField)
+		}
+
+		out = append(out, fmt.Sprintf(`%s AS "%s"`, selectField, field))
 		branch.groupBy.GroupBy(fmt.Sprintf(`"%s"."%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field]))
 	}
 

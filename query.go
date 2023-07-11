@@ -7,15 +7,16 @@ import (
 )
 
 var (
-	rootQuery         = `SELECT :totalRows: :select: FROM ( :from: :where: :groupBy: :orderBy:) :as: :join: :whereNulls: :groupByCTE: :limit:`
-	baseQuery         = `SELECT :select: FROM ":from:" :as: :join: :where: :groupBy: :orderBy: :limit:`
-	lateralQuery      = `:direction: JOIN LATERAL ( :query: ) :as: ON true`
-	singleQuery       = `:cteBranchedQueries: SELECT coalesce(to_jsonb(q),'{}') FROM ( :query: ) q`
-	sliceQuery        = `:cteBranchedQueries: SELECT coalesce(jsonb_agg(q),'[]') FROM ( :query: ) q`
-	branchSingleQuery = `to_jsonb( :select: ) :as:`
-	branchSliceQuery  = `COALESCE(jsonb_agg( :select: ) FILTER ( WHERE :select: IS NOT NULL ),'[]' )  :as:`
-	branchAnonQuery   = `:select:`
-	cteQuery          = `:with: AS ( :query: )`
+	rootQuery           = `SELECT :totalRows: :select: FROM ( :from: :where: :groupBy: :orderBy:) :as: :join: :whereNulls: :groupByCTE: :limit:`
+	baseQuery           = `SELECT :select: FROM ":from:" :as: :join: :where: :groupBy: :orderBy: :limit:`
+	lateralQuery        = `:direction: JOIN LATERAL ( :query: ) :as: ON true`
+	singleQuery         = `:cteBranchedQueries: SELECT coalesce(to_jsonb(q),'{}') FROM ( :query: ) q`
+	sliceQuery          = `:cteBranchedQueries: SELECT coalesce(jsonb_agg(q),'[]') FROM ( :query: ) q`
+	branchSingleQuery   = `to_jsonb( :select: ) :as:`
+	branchSliceQuery    = `COALESCE(jsonb_agg( :select: ) FILTER ( WHERE :select: IS NOT NULL ),'[]' )  :as:`
+	branchSliceCTEQuery = `COALESCE(:select:, '[]') :as:`
+	branchAnonQuery     = `:select:`
+	cteQuery            = `:with: AS ( :query: )`
 )
 
 type (
@@ -69,6 +70,12 @@ func newBranchSingle() *query {
 func newBranchSlice() *query {
 	return &query{
 		q: branchSliceQuery,
+	}
+}
+
+func newBranchCteSlice() *query {
+	return &query{
+		q: branchSliceCTEQuery,
 	}
 }
 

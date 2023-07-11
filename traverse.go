@@ -63,10 +63,13 @@ func (l *Liqu) traverse() error {
 		if v.cte {
 			subCTE := newBranchSingle().setAs(fmt.Sprintf(`"%s"`, v.field))
 			if v.slice {
-				subCTE = newBranchSlice().setAs(v.field)
+				subCTE = newBranchCteSlice().setAs(v.field)
 				cteGroupBy.GroupBy(fmt.Sprintf(`"%s"`, l.tree.as))
+				cteGroupBy.GroupBy(fmt.Sprintf(`"%s"."Result"`, v.field))
+				rootSelects = append(rootSelects, subCTE.setSelect(fmt.Sprintf(`"%s"."Result"`, v.field)).Scrub())
+			} else {
+				rootSelects = append(rootSelects, subCTE.setSelect(fmt.Sprintf(`"%s"`, v.field)).Scrub())
 			}
-			rootSelects = append(rootSelects, subCTE.setSelect(fmt.Sprintf(`"%s"`, v.field)).Scrub())
 			hasSubCTE = true
 		} else {
 			rootSelects = append(rootSelects, fmt.Sprintf(`"%s"."%s" AS "%s"`, v.as, v.field, v.field))

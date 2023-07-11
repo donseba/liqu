@@ -21,6 +21,7 @@ type (
 		branches         []*branch
 		relations        []branchRelation
 		selectedFields   map[string]bool
+		distinctFields   map[string]bool
 		referencedFields map[string]bool
 		subQuery         map[string]*SubQuery
 

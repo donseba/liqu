@@ -68,7 +68,11 @@ func (l *Liqu) traverseCteBranch(branch *branch, parent *branch) (string, error)
 		setOrderBy(branch.order.Build()).
 		setGroupBy(branch.groupBy.Build())
 
-	baseJoin.setSelect("*")
+	if branch.slice {
+		baseJoin.setSelect(fmt.Sprintf(`jsonb_agg("%s") AS "Result"`, branch.as))
+	} else {
+		baseJoin.setSelect("*")
+	}
 	baseJoin.setWhere(baseJoinConditions.Build())
 
 	if branch.limit != nil {

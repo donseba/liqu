@@ -82,6 +82,7 @@ func (l *Liqu) scan(sourceType reflect.Type, parent *branch) error {
 			order:            NewOrderBuilder(),
 			groupBy:          NewGroupByBuilder(),
 			selectedFields:   make(map[string]bool),
+			distinctFields:   make(map[string]bool),
 			referencedFields: make(map[string]bool),
 			subQuery:         make(map[string]*SubQuery),
 		}
@@ -242,14 +243,15 @@ func (l *Liqu) scanChild(structField reflect.StructField, source Source, parent 
 	}
 
 	var (
-		joinTag    = strings.ToUpper(structField.Tag.Get("join"))
-		relatedTag = structField.Tag.Get("related")
-		limitTag   = structField.Tag.Get("limit")
-		offsetTag  = structField.Tag.Get("offset")
-		selectTag  = structField.Tag.Get("select")
-		orderByTag = structField.Tag.Get("order_by")
-		groupByTag = structField.Tag.Get("group_by")
-		liquTag    = structField.Tag.Get("liqu")
+		joinTag     = strings.ToUpper(structField.Tag.Get("join"))
+		relatedTag  = structField.Tag.Get("related")
+		distinctTag = structField.Tag.Get("distinct")
+		limitTag    = structField.Tag.Get("limit")
+		offsetTag   = structField.Tag.Get("offset")
+		selectTag   = structField.Tag.Get("select")
+		orderByTag  = structField.Tag.Get("order_by")
+		groupByTag  = structField.Tag.Get("group_by")
+		liquTag     = structField.Tag.Get("liqu")
 	)
 
 	var (
@@ -291,6 +293,14 @@ func (l *Liqu) scanChild(structField reflect.StructField, source Source, parent 
 		}
 	}
 
+	distinctFields := make(map[string]bool)
+	if distinctTag != "" {
+		fields := strings.Split(distinctTag, ",")
+		for _, f := range fields {
+			distinctFields[f] = true
+		}
+	}
+
 	if selectFieldName == "" {
 		selectFieldName = source.Table()
 	}
@@ -312,6 +322,7 @@ func (l *Liqu) scanChild(structField reflect.StructField, source Source, parent 
 		referencedFields: make(map[string]bool),
 		subQuery:         make(map[string]*SubQuery),
 		selectedFields:   selectedFields,
+		distinctFields:   distinctFields,
 		joinDirection:    joinTag,
 	}
 
