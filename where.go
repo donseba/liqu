@@ -281,17 +281,20 @@ func (cb *ConditionBuilder) multiValueCondition(column string, op Operator, valu
 	}
 
 	placeholders := make([]string, len(values))
-	for i := range values {
-		cb.counter++
-		placeholders[i] = fmt.Sprintf("$%d", cb.counter)
+	for i, value := range values {
+		if cb.liqu != nil {
+			cb.counter++
+			cb.liqu.sqlParams = append(cb.liqu.sqlParams, value)
+			placeholders[i] = fmt.Sprintf("$%d", len(cb.liqu.sqlParams))
+		} else {
+			cb.counter++
+			placeholders[i] = fmt.Sprintf("$%d", cb.counter)
+		}
 	}
 
 	condition := fmt.Sprintf("%s %s (%s)", column, op, strings.Join(placeholders, ", "))
 	cb.conditions = append(cb.conditions, condition)
 	cb.args = append(cb.args, values...)
-	if cb.liqu != nil {
-		cb.liqu.sqlParams = append(cb.liqu.sqlParams, values...)
-	}
 
 	return cb
 }
