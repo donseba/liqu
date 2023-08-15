@@ -2,6 +2,7 @@ package liqu
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 )
 
@@ -112,6 +113,11 @@ func (l *Liqu) selectsWithStructAlias(branch *branch) []string {
 func (l *Liqu) processSelect(model, field string) {
 	if field == "*" {
 		for field := range l.registry[model].fieldTypes {
+			// if we select all fields, we don't need to select field that implements the Source interface
+			if _, ok := reflect.New(l.registry[model].fieldTypes[field]).Interface().(Source); ok {
+				continue
+			}
+
 			l.registry[model].branch.selectedFields[field] = true
 		}
 	} else {
