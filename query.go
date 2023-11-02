@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	rootQuery           = `SELECT :totalRows: :select: FROM ( :from: :where: :groupBy: :orderBy:) :as: :join: :whereNulls: :groupByCTE: :limit:`
+	rootQuery           = `SELECT :totalRows: :select: FROM ( :from: :where: :groupBy: :orderBy:) :as: :join: :whereNulls: :groupByCTE: :orderByParent: :limit:`
 	baseQuery           = `SELECT :select: FROM ":from:" :as: :join: :where: :groupBy: :orderBy: :limit:`
 	lateralQuery        = `:direction: JOIN LATERAL ( :query: ) :as: ON true`
 	singleQuery         = `:cteBranchedQueries: SELECT coalesce(to_jsonb(q),'{}') FROM ( :query: ) q`
@@ -176,6 +176,17 @@ func (q *query) setOrderBy(ob string) *query {
 	}
 
 	q.q = strings.Replace(q.q, ":orderBy:", str, 1)
+
+	return q
+}
+
+func (q *query) setOrderByParent(ob string) *query {
+	str := ""
+	if ob != "" {
+		str = fmt.Sprintf(`ORDER BY "%s"`, ob)
+	}
+
+	q.q = strings.Replace(q.q, ":orderByParent:", str, 1)
 
 	return q
 }

@@ -101,6 +101,10 @@ func (l *Liqu) traverse() error {
 		setGroupBy(l.tree.groupBy.Build()).
 		setGroupByCTE(cteGroupBy.Build())
 
+	if l.tree.order.Build() != "" {
+		root.setOrderByParent(l.tree.as)
+	}
+
 	var wrapper *query
 	if l.sourceSlice {
 		wrapper = newSliceQuery()
