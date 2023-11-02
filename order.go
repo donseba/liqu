@@ -2,6 +2,7 @@ package liqu
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -151,4 +152,40 @@ func (l *Liqu) processOrderBy(col, dir string) error {
 	l.registry[model].branch.groupBy.GroupBy(column)
 
 	return nil
+}
+
+type ExtractedOrder struct {
+	Table     string
+	Column    string
+	Direction string
+}
+
+// ExtractOrders takes a SQL order by clause and extracts columns and directions.
+func ExtractOrders(orderClause string) ([]ExtractedOrder, error) {
+	var orders []ExtractedOrder
+
+	// Regular expression to match the table, column and direction
+	re := regexp.MustCompile(`(?i)"([^"]+)"\."([^"]+)"\s*(ASC|DESC)?`)
+
+	matches := re.FindAllStringSubmatch(orderClause, -1)
+
+	for _, match := range matches {
+		if len(match) < 3 {
+			return nil, fmt.Errorf("invalid order clause: %s", orderClause)
+		}
+
+		order := ExtractedOrder{
+			Table:     match[1],
+			Column:    match[2],
+			Direction: strings.ToUpper(match[3]),
+		}
+
+		if order.Direction == "" {
+			order.Direction = "ASC"
+		}
+
+		orders = append(orders, order)
+	}
+
+	return orders, nil
 }

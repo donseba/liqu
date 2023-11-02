@@ -83,10 +83,20 @@ func (l *Liqu) selectsWithStructAlias(branch *branch) []string {
 
 	for field := range branch.selectedFields {
 		if subQ, ok := branch.subQuery[field]; ok {
+			// todo, not tested yet
 			subQ.And(fmt.Sprintf(`%s.%s="%s"."%s"`, subQ.from, subQ.fieldLocal, branch.source.Table(), l.registry[branch.as].fieldDatabase[subQ.fieldParent]))
-			out = append(out, fmt.Sprintf(`(%s) AS "%s"`, subQ.Build(), field))
+
+			if branch.order.HasOrderBy(fmt.Sprintf(`"%s"."%s"`, branch.source.Table(), branch.registry.fieldDatabase[field])) {
+				out = append([]string{fmt.Sprintf(`(%s) AS "%s"`, subQ.Build(), field)}, out...)
+			} else {
+				out = append(out, fmt.Sprintf(`(%s) AS "%s"`, subQ.Build(), field))
+			}
 		} else {
-			out = append(out, fmt.Sprintf(`"%s"."%s" AS "%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field], field))
+			if branch.order.HasOrderBy(fmt.Sprintf(`"%s"."%s"`, branch.source.Table(), branch.registry.fieldDatabase[field])) {
+				out = append([]string{fmt.Sprintf(`"%s"."%s" AS "%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field], field)}, out...)
+			} else {
+				out = append(out, fmt.Sprintf(`"%s"."%s" AS "%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field], field))
+			}
 			branch.groupBy.GroupBy(fmt.Sprintf(`"%s"."%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field]))
 		}
 

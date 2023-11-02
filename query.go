@@ -183,7 +183,7 @@ func (q *query) setOrderBy(ob string) *query {
 func (q *query) setOrderByParent(ob string) *query {
 	str := ""
 	if ob != "" {
-		str = fmt.Sprintf(`ORDER BY "%s"`, ob)
+		str = fmt.Sprintf(`ORDER BY %s`, ob)
 	}
 
 	q.q = strings.Replace(q.q, ":orderByParent:", str, 1)

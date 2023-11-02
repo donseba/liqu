@@ -97,13 +97,33 @@ func (l *Liqu) traverse() error {
 		setLimit(l.filters).
 		setWhere(l.tree.where.Build()).
 		setWhereNulls(whereNulls.Build()).
-		setOrderBy(l.tree.order.Build()).
-		setGroupBy(l.tree.groupBy.Build()).
-		setGroupByCTE(cteGroupBy.Build())
+		setOrderBy(l.tree.order.Build())
 
 	if l.tree.order.Build() != "" {
-		root.setOrderByParent(l.tree.as)
+		eo, err := ExtractOrders(l.tree.order.Build())
+		if err == nil {
+			no := NewOrderBuilder()
+			for _, v := range eo {
+				if l.tree.registry.tableName != v.Table {
+					continue
+				}
+
+				for k, fd := range l.tree.registry.fieldDatabase {
+					if fd == v.Column {
+						if len(cteGroupBy.groups) > 0 {
+							cteGroupBy.GroupBy(fmt.Sprintf(`"%s"`, k))
+						}
+						no.OrderBy(fmt.Sprintf(`"%s"`, k), OrderDirection(v.Direction))
+					}
+				}
+			}
+
+			root.setOrderByParent(no.Build())
+		}
 	}
+
+	root.setGroupBy(l.tree.groupBy.Build()).
+		setGroupByCTE(cteGroupBy.Build())
 
 	var wrapper *query
 	if l.sourceSlice {
