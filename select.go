@@ -101,9 +101,9 @@ func (l *Liqu) selectsWithStructAlias(branch *branch) []string {
 	for field := range branch.referencedFields {
 		if subQ, ok := branch.subQuery[field]; ok {
 			subQ.And(fmt.Sprintf(`%s.%s="%s"."%s"`, subQ.from, subQ.fieldLocal, branch.source.Table(), l.registry[branch.as].fieldDatabase[subQ.fieldParent]))
-			out = append(out, fmt.Sprintf(`(%s) AS "%s"`, subQ.Build(), field))
+			out = appendUnique(out, fmt.Sprintf(`(%s) AS "%s"`, subQ.Build(), field))
 		} else {
-			out = append(out, fmt.Sprintf(`"%s"."%s" AS "%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field], field))
+			out = appendUnique(out, fmt.Sprintf(`"%s"."%s" AS "%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field], field))
 			branch.groupBy.GroupBy(fmt.Sprintf(`"%s"."%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field]))
 		}
 	}
