@@ -13,7 +13,7 @@ var (
 	singleQuery         = `:cteBranchedQueries: SELECT coalesce(to_jsonb(q),'{}') FROM ( :query: ) q`
 	sliceQuery          = `:cteBranchedQueries: SELECT coalesce(jsonb_agg(q),'[]') FROM ( :query: ) q`
 	branchSingleQuery   = `to_jsonb( :select: ) :as:`
-	branchSliceQuery    = `COALESCE(jsonb_agg( :select: ) FILTER ( WHERE :select: IS NOT NULL ),'[]' )  :as:`
+	branchSliceQuery    = `COALESCE(jsonb_agg( :select: :orderBy: ) FILTER ( WHERE :select: IS NOT NULL ),'[]' )  :as:`
 	branchSliceCTEQuery = `COALESCE(:select:, '[]') :as:`
 	branchAnonQuery     = `:select:`
 	cteQuery            = `:with: AS ( :query: )`

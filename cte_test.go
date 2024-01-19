@@ -44,6 +44,21 @@ func TestCte(t *testing.T) {
 
 	sqlQuery, sqlParams := li.SQL()
 
-	t.Log(sqlQuery)
-	t.Log(sqlParams)
+	expected := `WITH "TagSearch" AS ( SELECT project_advisor.id_project FROM "tag" LEFT JOIN project_tag ON project_tag.id_tag = tag.id WHERE "tag"."name" ~~* $2 ) SELECT coalesce(jsonb_agg(q),'[]') FROM ( SELECT count(*) OVER() AS TotalRows, to_jsonb( "Project" ) AS "Project" FROM ( SELECT "project"."id" AS "ID", "project"."company_id" AS "CompanyID" FROM "project" WHERE "project"."company_id" = $1 AND "project"."id" IN (SELECT * FROM "TagSearch") GROUP BY "project"."id", "project"."company_id" ) AS "Project" LIMIT 25 OFFSET 0 ) q`
+
+	if sqlQuery != expected {
+		t.Errorf("expected:\n%s\ngot:\n%s", expected, sqlQuery)
+	}
+
+	if len(sqlParams) != 2 {
+		t.Errorf("expected 2 params, got %d", len(sqlParams))
+	}
+
+	if sqlParams[0] != "0987654321" {
+		t.Errorf("expected 0987654321, got %s", sqlParams[0])
+	}
+
+	if sqlParams[1] != "%tagNameSearched%" {
+		t.Errorf("expected %%tagNameSearched%%, got %s", sqlParams[1])
+	}
 }

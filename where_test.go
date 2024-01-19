@@ -96,3 +96,29 @@ func TestParseURLQueryToConditionBuilderNestedOR(t *testing.T) {
 		}
 	}
 }
+
+func TestLikeWrapSearched(t *testing.T) {
+	cb := NewConditionBuilder()
+	whereClause := cb.Column("name").
+		Condition(ILike, "John").
+		And("age", GreaterThanOrEqual, 18).
+		OrIsNull("age").
+		AndNested(func(n *ConditionBuilder) {
+			n.Column("country").Condition(Equal, "USA").
+				Or("city", Equal, "New York")
+		}).
+		Build()
+
+	expected := `name ~~* $1 AND age >= $2 OR age IS NULL AND (country = $3 OR city = $4)`
+	if expected != whereClause {
+		t.Errorf("expected:\n%s\ngot:\n%s", expected, whereClause)
+	}
+
+	if len(cb.Args()) != 4 {
+		t.Errorf("expected:\n%d\ngot:\n%d", 4, len(cb.Args()))
+	}
+
+	if cb.Args()[0] != "%John%" {
+		t.Errorf("expected:\n%s\ngot:\n%s", "%John%", cb.Args()[0])
+	}
+}

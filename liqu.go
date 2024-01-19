@@ -243,6 +243,13 @@ func ParseUrlValuesToFilters(values url.Values) (*Filters, error) {
 		}
 	}
 
+	if disablePagingQuery, ok := values["disable_paging"]; ok {
+		if len(disablePagingQuery) > 0 {
+			disablePaging, _ := strconv.ParseBool(disablePagingQuery[0])
+			filters.DisablePaging = disablePaging
+		}
+	}
+
 	return filters, nil
 }
 

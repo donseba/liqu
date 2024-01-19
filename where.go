@@ -37,6 +37,27 @@ func (o Operator) String() string {
 	return string(o)
 }
 
+func (o Operator) IsIn() bool {
+	return o == In || o == NotIn || o == Any || o == NotAny
+}
+
+func (o Operator) IsLike() bool {
+	return o == Like || o == ILike || o == NotLike || o == NotILike
+}
+
+func (o Operator) WrapLike(s string) string {
+	if o.IsLike() {
+		// check if the string already has a wildcard
+		if strings.Contains(s, "%") || strings.Contains(s, "_") {
+			return s
+		}
+
+		return "%" + s + "%"
+	}
+
+	return s
+}
+
 // ConditionBuilder is a struct for fluently building SQL WHERE clauses
 type ConditionBuilder struct {
 	column           string
@@ -67,7 +88,7 @@ func (cb *ConditionBuilder) Column(column string) *ConditionBuilder {
 func (cb *ConditionBuilder) Condition(op Operator, value interface{}) *ConditionBuilder {
 	var condition string
 
-	if queried, ok := cb.protectedColumns[cb.column]; ok && queried {
+	if cb.IsProtected(cb.column) {
 		return cb
 	}
 
@@ -83,13 +104,18 @@ func (cb *ConditionBuilder) Condition(op Operator, value interface{}) *Condition
 		}
 
 		return cb.multiValueCondition(cb.column, op, values)
-	} else if op == In || op == NotIn || op == Any || op == NotAny {
+	} else if op.IsIn() {
 		return cb.multiValueCondition(cb.column, op, []interface{}{value})
 	}
 
 	if value == nil {
 		condition = fmt.Sprintf("%s %s", cb.column, op)
 	} else {
+		// wrap LIKE values in % signs
+		if op.IsLike() {
+			value = op.WrapLike(fmt.Sprintf("%s", value))
+		}
+
 		cb.args = append(cb.args, value)
 		cb.counter++
 		if cb.liqu != nil {
@@ -517,20 +543,26 @@ func (l *Liqu) processWhere(outerOperator Operator, col string, op string, val i
 		return fmt.Errorf("invalid search field %s", col)
 	}
 
+	// no need to process protected fields.
+	if l.registry[model].branch.where.IsProtected(column) {
+		return nil
+	}
+
+	var tableColumn string
 	if l.registry[model].branch.isCTE {
 		if cteTable == "" {
 			return fmt.Errorf("provide cteTable for cte search %s", col)
 		}
 
 		l.cte[model].isSearched = true
-		column = fmt.Sprintf(`"%s"."%s"`, l.registry[model].tableName, column)
+		tableColumn = fmt.Sprintf(`"%s"."%s"`, l.registry[model].tableName, column)
 	} else {
-		column = fmt.Sprintf(`"%s"."%s"`, l.registry[model].tableName, column)
+		tableColumn = fmt.Sprintf(`"%s"."%s"`, l.registry[model].tableName, column)
 	}
 
 	operator := Operator(op)
 
-	l.registry[model].branch.selectedFields[field] = true
+	l.registry[model].branch.selectedFields = appendUnique(l.registry[model].branch.selectedFields, field)
 	l.registry[model].branch.isSearched = true
 
 	if val != nil {
@@ -544,15 +576,15 @@ func (l *Liqu) processWhere(outerOperator Operator, col string, op string, val i
 		}
 
 		if outerOperator == And {
-			l.registry[model].branch.where.And(column, operator, value)
+			l.registry[model].branch.where.And(tableColumn, operator, value)
 		} else {
-			l.registry[model].branch.where.Or(column, operator, value)
+			l.registry[model].branch.where.Or(tableColumn, operator, value)
 		}
 	} else {
 		if outerOperator == And {
-			l.registry[model].branch.where.And(column, operator, nil)
+			l.registry[model].branch.where.And(tableColumn, operator, nil)
 		} else {
-			l.registry[model].branch.where.Or(column, operator, nil)
+			l.registry[model].branch.where.Or(tableColumn, operator, nil)
 		}
 	}
 
@@ -569,6 +601,13 @@ func (cb *ConditionBuilder) ProtectColumn(column string) *ConditionBuilder {
 	}
 	cb.protectedColumns[column] = true
 	return cb
+}
+
+func (cb *ConditionBuilder) IsProtected(column string) bool {
+	if cb.protectedColumns == nil {
+		return false
+	}
+	return cb.protectedColumns[column]
 }
 
 type array []interface{}

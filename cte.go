@@ -44,7 +44,7 @@ func (l *Liqu) WithCte(as string, cte *Cte) *Liqu {
 		tableName:     cte.baseTable,
 		branch: &branch{
 			isCTE:          true,
-			selectedFields: map[string]bool{},
+			selectedFields: make([]string, 0),
 			where:          cte.conditions,
 		},
 	}

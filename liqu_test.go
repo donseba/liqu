@@ -84,8 +84,16 @@ func TestNew(t *testing.T) {
 	}
 
 	sql, params := li.SQL()
-	t.Log(sql)
-	t.Log(params)
+
+	expected := `SELECT coalesce(jsonb_agg(q),'[]') FROM ( SELECT count(*) OVER() AS TotalRows, to_jsonb( "Project" ) AS "Project", "ProjectTags"."ProjectTags" AS "ProjectTags" FROM ( SELECT "project"."id" AS "ID" FROM "project" GROUP BY "project"."id" ) AS "Project" LEFT JOIN LATERAL ( SELECT COALESCE(jsonb_agg( jsonb_build_object( 'TagID', "project_tag"."id_tag", 'ProjectID', "project_tag"."id_project", 'Tags', "Tags"."Tags" ) ) FILTER ( WHERE jsonb_build_object( 'TagID', "project_tag"."id_tag", 'ProjectID', "project_tag"."id_project", 'Tags', "Tags"."Tags" ) IS NOT NULL ),'[]' ) AS "ProjectTags" FROM "project_tag" LEFT JOIN LATERAL ( SELECT COALESCE(jsonb_agg( jsonb_build_object( 'ID', "tag"."id" ) ) FILTER ( WHERE jsonb_build_object( 'ID', "tag"."id" ) IS NOT NULL ),'[]' ) AS "Tags" FROM "tag" WHERE id = "project_tag"."id_tag" ) AS "Tags" ON true WHERE id_project = "Project"."ID" ) AS "ProjectTags" ON true LIMIT 25 OFFSET 0 ) q`
+
+	if sql != expected {
+		t.Errorf("expected:\n%s\ngot:\n%s", expected, sql)
+	}
+
+	if len(params) != 0 {
+		t.Errorf("expected 0 params, got %d", len(params))
+	}
 }
 
 type (
@@ -154,7 +162,7 @@ func TestWithJoins(t *testing.T) {
 
 func TestWithWhere(t *testing.T) {
 	filters := &Filters{
-		Page:    2,
+		Page:    1,
 		PerPage: 25,
 		OrderBy: "Project.Name|ASC,Tags.Name|DESC",
 		Where:   "Project.CompanyID|=|overrideCheck,Project.Name|=|Foo",
@@ -180,13 +188,19 @@ func TestWithWhere(t *testing.T) {
 
 	sqlQuery, sqlParams := li.SQL()
 
-	t.Log(sqlQuery)
-	t.Log(sqlParams)
+	expected := `SELECT coalesce(jsonb_agg(q),'[]') FROM ( SELECT count(*) OVER() AS TotalRows, to_jsonb( "Project" ) AS "Project", "ProjectTags"."ProjectTags" AS "ProjectTags" FROM ( SELECT "project"."name" AS "Name", "project"."id" AS "ID", "project"."company_id" AS "CompanyID", "project"."description" AS "Description", "project"."volume" AS "Volume" FROM "project" WHERE "project"."company_id" = $1 AND "project"."name" = $2 GROUP BY "project"."name", "project"."id", "project"."company_id", "project"."description", "project"."volume" ORDER BY "project"."name" ASC) AS "Project" LEFT JOIN LATERAL ( SELECT COALESCE(jsonb_agg( jsonb_build_object( 'TagID', "project_tag"."id_tag", 'ProjectID', "project_tag"."id_project", 'Tags', "Tags"."Tags" ) ) FILTER ( WHERE jsonb_build_object( 'TagID', "project_tag"."id_tag", 'ProjectID', "project_tag"."id_project", 'Tags', "Tags"."Tags" ) IS NOT NULL ),'[]' ) AS "ProjectTags" FROM "project_tag" LEFT JOIN LATERAL ( SELECT COALESCE(jsonb_agg( jsonb_build_object( 'ID', "tag"."id", 'Name', "tag"."name" ) ORDER BY "tag"."name" DESC ) FILTER ( WHERE jsonb_build_object( 'ID', "tag"."id", 'Name', "tag"."name" ) IS NOT NULL ),'[]' ) AS "Tags" FROM "tag" WHERE id = "project_tag"."id_tag" ) AS "Tags" ON true WHERE id_project = "Project"."ID" ) AS "ProjectTags" ON true ORDER BY "Name" ASC LIMIT 25 OFFSET 0 ) q`
+	if sqlQuery != expected {
+		t.Errorf("expected:\n%s\ngot:\n%s", expected, sqlQuery)
+	}
+
+	if len(sqlParams) != 2 {
+		t.Errorf("expected 2 params, got %d", len(sqlParams))
+	}
 }
 
 func TestWithSubQuery(t *testing.T) {
 	filters := &Filters{
-		Page:    2,
+		Page:    1,
 		PerPage: 25,
 		OrderBy: "Project.Name|ASC",
 		Select:  "Project.*",
@@ -210,8 +224,17 @@ func TestWithSubQuery(t *testing.T) {
 
 	sqlQuery, sqlParams := li.SQL()
 
+	expected := `SELECT coalesce(jsonb_agg(q),'[]') FROM ( SELECT count(*) OVER() AS TotalRows, to_jsonb( "Project" ) AS "Project" FROM ( SELECT "project"."name" AS "Name", "project"."id" AS "ID", "project"."company_id" AS "CompanyID", "project"."description" AS "Description", (SELECT SUM(volume) FROM "project_time_entry" WHERE project_time_entry.id_project="project"."id") AS "Volume" FROM "project" GROUP BY "project"."name", "project"."id", "project"."company_id", "project"."description" ORDER BY "project"."name" ASC) AS "Project" ORDER BY "Name" ASC LIMIT 25 OFFSET 0 ) q`
+
+	if len(sqlQuery) != len(expected) {
+		t.Errorf("expected:\n%s\ngot:\n%s", expected, sqlQuery)
+	}
+	// still need to ensure the order of the fields is the same
 	t.Log(sqlQuery)
-	t.Log(sqlParams)
+
+	if len(sqlParams) != 0 {
+		t.Errorf("expected 0 params, got %d", len(sqlParams))
+	}
 }
 
 func TestWithCTE(t *testing.T) {
@@ -241,6 +264,13 @@ func TestWithCTE(t *testing.T) {
 
 	sqlQuery, sqlParams := li.SQL()
 
-	t.Log(sqlQuery)
-	t.Log(sqlParams)
+	expected := `SELECT coalesce(jsonb_agg(q),'[]') FROM ( SELECT count(*) OVER() AS TotalRows, to_jsonb( "Project" ) AS "Project", "ProjectTags"."ProjectTags" AS "ProjectTags" FROM ( SELECT "project"."name" AS "Name", "project"."id" AS "ID" FROM "project" GROUP BY "project"."name", "project"."id" ORDER BY "project"."name" ASC) AS "Project" LEFT JOIN LATERAL ( SELECT COALESCE(jsonb_agg( jsonb_build_object( 'TagID', "project_tag"."id_tag", 'ProjectID', "project_tag"."id_project", 'Tags', "Tags"."Tags" ) ) FILTER ( WHERE jsonb_build_object( 'TagID', "project_tag"."id_tag", 'ProjectID', "project_tag"."id_project", 'Tags', "Tags"."Tags" ) IS NOT NULL ),'[]' ) AS "ProjectTags" FROM "project_tag" LEFT JOIN LATERAL ( SELECT COALESCE(jsonb_agg( jsonb_build_object( 'ID', "tag"."id", 'Name', "tag"."name" ) ) FILTER ( WHERE jsonb_build_object( 'ID', "tag"."id", 'Name', "tag"."name" ) IS NOT NULL ),'[]' ) AS "Tags" FROM "tag" WHERE id = "project_tag"."id_tag" ) AS "Tags" ON true WHERE id_project = "Project"."ID" ) AS "ProjectTags" ON true ORDER BY "Name" ASC LIMIT 25 OFFSET 0 ) q`
+
+	if sqlQuery != expected {
+		t.Errorf("expected:\n%s\ngot:\n%s", expected, sqlQuery)
+	}
+
+	if len(sqlParams) != 0 {
+		t.Errorf("expected 0 params, got %d", len(sqlParams))
+	}
 }

@@ -81,14 +81,14 @@ func (l *Liqu) scan(sourceType reflect.Type, parent *branch) error {
 			where:            where,
 			order:            NewOrderBuilder(),
 			groupBy:          NewGroupByBuilder(),
-			selectedFields:   make(map[string]bool),
+			selectedFields:   make([]string, 0),
 			distinctFields:   make(map[string]bool),
 			referencedFields: make(map[string]bool),
 			subQuery:         make(map[string]*SubQuery),
 		}
 
 		for _, v := range primaryKeys {
-			l.tree.selectedFields[v] = true
+			l.tree.selectedFields = appendUnique(l.tree.selectedFields, v)
 		}
 
 		// assign the parent and continue with the rest of the fields.
@@ -285,11 +285,11 @@ func (l *Liqu) scanChild(structField reflect.StructField, source Source, parent 
 		joinTag = "INNER"
 	}
 
-	selectedFields := make(map[string]bool)
+	selectedFields := make([]string, 0)
 	if selectTag != "" {
 		fields := strings.Split(selectTag, ",")
 		for _, f := range fields {
-			selectedFields[f] = true
+			selectedFields = append(selectedFields, f)
 		}
 	}
 
@@ -327,7 +327,7 @@ func (l *Liqu) scanChild(structField reflect.StructField, source Source, parent 
 	}
 
 	for _, v := range primaryKeys {
-		currentBranch.selectedFields[v] = true
+		currentBranch.selectedFields = appendUnique(currentBranch.selectedFields, v)
 	}
 
 	reg := &registry{
@@ -445,4 +445,14 @@ func toSnakeCase(str string) string {
 	snake := matchFirstCap.ReplaceAllString(str, "${1}_${2}")
 	snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
 	return strings.ToLower(snake)
+}
+
+func appendUnique(slice []string, str string) []string {
+	for _, v := range slice {
+		if v == str {
+			return slice
+		}
+	}
+
+	return append(slice, str)
 }

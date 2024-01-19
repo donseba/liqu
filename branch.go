@@ -20,7 +20,7 @@ type (
 		registry         *registry
 		branches         []*branch
 		relations        []branchRelation
-		selectedFields   map[string]bool
+		selectedFields   []string
 		distinctFields   map[string]bool
 		referencedFields map[string]bool
 		subQuery         map[string]*SubQuery

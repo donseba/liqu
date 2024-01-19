@@ -185,6 +185,9 @@ func (l *Liqu) traverseBranch(branch *branch, parent *branch) error {
 	}
 
 	branchFieldSelect.setSelect(fmt.Sprintf("jsonb_build_object( %s )", strings.Join(selects, ", "))).setAs(branch.as)
+	// set the order_by inside the branch just behind the jsonb_agg so we can order on the fields inside the jsonb_agg
+	branchOrder := branch.order.Build()
+	branchFieldSelect.setOrderBy(branchOrder)
 
 	for _, v := range branch.relations {
 		externalField := l.registry[v.externalTable].fieldDatabase[v.externalField]
@@ -226,8 +229,7 @@ func (l *Liqu) traverseBranch(branch *branch, parent *branch) error {
 
 	base.setSelect(strings.Join(selectsWithReferences, ", ")).
 		setJoin(strings.Join(branch.joinBranched, " ")).
-		setWhere(branch.where.Build()).
-		setOrderBy(branch.order.Build())
+		setWhere(branch.where.Build())
 
 	if branch.parent.isCTE {
 		base.setGroupBy(branch.groupBy.Build())
@@ -262,7 +264,9 @@ func setParentJoinDirection(parent *branch) {
 
 	parent.joinDirection = InnerJoin
 
-	setParentJoinDirection(parent.parent)
+	if parent.parent != nil {
+		setParentJoinDirection(parent.parent)
+	}
 }
 
 func (l *Liqu) matchCTEWithBranch(branch *branch, linkedCte linkedCte) {
