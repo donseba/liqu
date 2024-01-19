@@ -76,10 +76,7 @@ func (l *Liqu) selectsAsObjectPair(branch *branch) []string {
 }
 
 func (l *Liqu) selectsWithStructAlias(branch *branch) []string {
-	var (
-		fields []string
-		out    []string
-	)
+	var out []string
 
 	for _, field := range branch.selectedFields {
 		if subQ, ok := branch.subQuery[field]; ok {
@@ -89,18 +86,16 @@ func (l *Liqu) selectsWithStructAlias(branch *branch) []string {
 			if branch.order.HasOrderBy(fmt.Sprintf(`"%s"."%s"`, branch.source.Table(), branch.registry.fieldDatabase[field])) {
 				out = append([]string{fmt.Sprintf(`(%s) AS "%s"`, subQ.Build(), field)}, out...)
 			} else {
-				out = append(out, fmt.Sprintf(`(%s) AS "%s"`, subQ.Build(), field))
+				out = appendUnique(out, fmt.Sprintf(`(%s) AS "%s"`, subQ.Build(), field))
 			}
 		} else {
 			if branch.order.HasOrderBy(fmt.Sprintf(`"%s"."%s"`, branch.source.Table(), branch.registry.fieldDatabase[field])) {
 				out = append([]string{fmt.Sprintf(`"%s"."%s" AS "%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field], field)}, out...)
 			} else {
-				out = append(out, fmt.Sprintf(`"%s"."%s" AS "%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field], field))
+				out = appendUnique(out, fmt.Sprintf(`"%s"."%s" AS "%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field], field))
 			}
 			branch.groupBy.GroupBy(fmt.Sprintf(`"%s"."%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field]))
 		}
-
-		fields = append(fields, field)
 	}
 
 	for field := range branch.referencedFields {
