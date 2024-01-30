@@ -8,6 +8,7 @@ import (
 
 var (
 	rootQuery           = `SELECT :totalRows: :select: FROM ( :from: :where: :groupBy: :orderBy:) :as: :join: :whereNulls: :groupByCTE: :orderByParent: :limit:`
+	anonRootQuery       = `SELECT :totalRows: :select: FROM :from: :join: :whereNulls: :where: :groupBy: :orderBy: :groupByCTE: :limit: `
 	baseQuery           = `SELECT :select: FROM ":from:" :as: :join: :where: :groupBy: :orderBy: :limit:`
 	lateralQuery        = `:direction: JOIN LATERAL ( :query: ) :as: ON true`
 	singleQuery         = `:cteBranchedQueries: SELECT coalesce(to_jsonb(q),'{}') FROM ( :query: ) q`
@@ -40,6 +41,12 @@ func newSingleQuery() *query {
 func newRootQuery() *query {
 	return &query{
 		q: rootQuery,
+	}
+}
+
+func newAnonRootQuery() *query {
+	return &query{
+		q: anonRootQuery,
 	}
 }
 

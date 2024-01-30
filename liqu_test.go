@@ -12,6 +12,7 @@ type (
 		Name        string  `db:"name"`
 		Description string  `db:"description"`
 		Volume      float64 `db:"volume"`
+		TotalVolume float64 `db:"total_volume" liqu:"-"`
 	}
 
 	CategoryProject struct {
@@ -175,6 +176,7 @@ func TestWithWhere(t *testing.T) {
 		Where("Project.CompanyID", Equal, "11111111-0000-0000-0000-123456789012").
 		Select("Project", "*").
 		Select("Tags", "*")
+	//Sum("Project", "Volume", "TotalVolume")
 
 	li.WithDefaults(def)
 

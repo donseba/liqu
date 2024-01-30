@@ -82,6 +82,7 @@ func (l *Liqu) scan(sourceType reflect.Type, parent *branch) error {
 			order:            NewOrderBuilder(),
 			groupBy:          NewGroupByBuilder(),
 			selectedFields:   make([]string, 0),
+			aggregateFields:  make([]aggregateField, 0),
 			distinctFields:   make(map[string]bool),
 			referencedFields: make(map[string]bool),
 			subQuery:         make(map[string]*SubQuery),

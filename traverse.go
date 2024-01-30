@@ -6,23 +6,22 @@ import (
 )
 
 func (l *Liqu) traverse() error {
-	root := newRootQuery()
+	if l.tree.anonymous {
+		return l.traverseAnonymousRoot()
+	}
 
+	root := newRootQuery()
 	if l.sourceSlice {
 		root.SetTotalRows("count(*) OVER() AS TotalRows,")
 	}
 
 	rootFieldSelect := newBranchAnon()
-	if !l.tree.anonymous {
-		if l.tree.slice {
-			rootFieldSelect = newBranchSlice()
-		} else {
-			rootFieldSelect = newBranchSingle()
-		}
-		rootFieldSelect.setSelect(fmt.Sprintf(`"%s"`, l.tree.as)).setAs(l.tree.as)
+	if l.tree.slice {
+		rootFieldSelect = newBranchSlice()
 	} else {
-		rootFieldSelect.setSelect(strings.Join(l.selectsAsStruct(l.tree), ", "))
+		rootFieldSelect = newBranchSingle()
 	}
+	rootFieldSelect.setSelect(fmt.Sprintf(`"%s"`, l.tree.as)).setAs(l.tree.as)
 
 	whereNulls := NewConditionBuilder()
 	for _, v := range l.tree.branches {
@@ -91,13 +90,18 @@ func (l *Liqu) traverse() error {
 		}
 	}
 
-	root.setSelect(strings.Join(rootSelects, ", ")).
+	var selects []string
+	selects = rootSelects
+	if len(l.tree.aggregateFields) > 0 {
+		selects = l.aggregateWithAlias(l.tree)
+	}
+
+	root.setSelect(strings.Join(selects, ", ")).
 		setFrom(base.Scrub()).
 		setAs(l.tree.as).
 		setLimit(l.filters).
 		setWhere(l.tree.where.Build()).
-		setWhereNulls(whereNulls.Build()).
-		setOrderBy(l.tree.order.Build())
+		setWhereNulls(whereNulls.Build())
 
 	if l.tree.order.Build() != "" {
 		eo, err := ExtractOrders(l.tree.order.Build())
@@ -118,12 +122,150 @@ func (l *Liqu) traverse() error {
 				}
 			}
 
-			root.setOrderByParent(no.Build())
+			if len(l.tree.aggregateFields) == 0 {
+				root.setOrderByParent(no.Build())
+			}
 		}
+	}
+
+	if len(l.tree.aggregateFields) == 0 {
+		root.setOrderBy(l.tree.order.Build())
 	}
 
 	root.setGroupBy(l.tree.groupBy.Build()).
 		setGroupByCTE(cteGroupBy.Build())
+
+	var wrapper *query
+	if l.sourceSlice {
+		wrapper = newSliceQuery()
+	} else {
+		wrapper = newSingleQuery()
+	}
+
+	var cteQueries []string
+	for _, v := range l.cteBranchedQueries {
+		cteQueries = append(cteQueries, newCteQuery().setWith(v.As).setQuery(v.Query).Scrub())
+	}
+
+	for as, cte := range l.cte {
+		cteQueries = append(cteQueries, newCteQuery().setWith(as).setQuery(cte.Build()).Scrub())
+	}
+
+	l.sqlQuery = wrapper.setCTE(strings.Join(cteQueries, ", ")).setQuery(root.Scrub()).Scrub()
+
+	return nil
+}
+
+func (l *Liqu) traverseAnonymousRoot() error {
+	root := newAnonRootQuery()
+	if l.sourceSlice {
+		root.SetTotalRows("count(*) OVER() AS TotalRows,")
+	}
+
+	for _, v := range l.tree.branches {
+		// if it is a Cte, we branch of and threat it as a root element with no parent.
+		if v.isCTE {
+			cte, err := l.traverseCteBranch(v, l.tree)
+			if err != nil {
+				return err
+			}
+			l.cteBranchedQueries = append(l.cteBranchedQueries, &CteBranchedQuery{
+				As:    v.as,
+				Query: cte,
+			})
+		} else {
+			err := l.traverseBranch(v, l.tree)
+			if err != nil {
+				return err
+			}
+		}
+
+		//if v.joinDirection == InnerJoin && !v.isCTE {
+		//	l.tree.where.AndIsNotNull(fmt.Sprintf(`"%s"`, v.as))
+		//}
+	}
+
+	root.setJoin(strings.Join(l.tree.joinBranched, " "))
+
+	cteGroupBy := NewGroupByBuilder()
+
+	var selects = l.selectsWithStructAlias(l.tree)
+
+	var hasSubCTE bool
+	for _, v := range l.tree.joinFields {
+		if v.cte {
+			subCTE := newBranchSingle().setAs(fmt.Sprintf(`"%s"`, v.field))
+			if v.slice {
+				subCTE = newBranchCteSlice().setAs(v.field)
+				cteGroupBy.GroupBy(fmt.Sprintf(`"%s"`, l.tree.as))
+				cteGroupBy.GroupBy(fmt.Sprintf(`"%s"."Result"`, v.field))
+				selects = append(selects, subCTE.setSelect(fmt.Sprintf(`"%s"."Result"`, v.field)).Scrub())
+			} else {
+				selects = append(selects, subCTE.setSelect(fmt.Sprintf(`"%s"`, v.field)).Scrub())
+			}
+			hasSubCTE = true
+		} else {
+			selects = append(selects, fmt.Sprintf(`"%s"."%s" AS "%s"`, v.as, v.field, v.field))
+		}
+	}
+
+	if cte, ok := l.linkedCte[l.tree.as]; ok {
+		for _, v := range cte {
+			l.matchCTEWithBranch(l.tree, v)
+		}
+	}
+
+	if hasSubCTE {
+		for _, v := range l.tree.branches {
+			if v.isCTE {
+				continue
+			}
+			cteGroupBy.GroupBy(fmt.Sprintf(`"%s"`, v.as))
+		}
+	}
+
+	if len(l.tree.aggregateFields) > 0 {
+		selects = l.aggregateWithAlias(l.tree)
+	}
+
+	root.setSelect(strings.Join(selects, ", ")).
+		setFrom(fmt.Sprintf(`"%s"`, l.tree.registry.tableName)).
+		setAs(l.tree.as).
+		setLimit(l.filters).
+		setWhere(l.tree.where.Build())
+
+	if l.tree.order.Build() != "" {
+		eo, err := ExtractOrders(l.tree.order.Build())
+		if err == nil {
+			no := NewOrderBuilder()
+			for _, v := range eo {
+				if l.tree.registry.tableName != v.Table {
+					continue
+				}
+
+				for k, fd := range l.tree.registry.fieldDatabase {
+					if fd == v.Column {
+						if len(cteGroupBy.groups) > 0 {
+							cteGroupBy.GroupBy(fmt.Sprintf(`"%s"`, k))
+						}
+						no.OrderBy(fmt.Sprintf(`"%s"`, k), OrderDirection(v.Direction))
+					}
+				}
+			}
+
+			if len(l.tree.aggregateFields) == 0 {
+				root.setOrderByParent(no.Build())
+			}
+		}
+	}
+
+	if len(l.tree.aggregateFields) == 0 {
+		root.setOrderBy(l.tree.order.Build())
+	}
+
+	//root.setGroupBy(l.tree.groupBy.Build())
+
+	//root.setGroupByCTE(cteGroupBy.Build())
 
 	var wrapper *query
 	if l.sourceSlice {
@@ -193,9 +335,11 @@ func (l *Liqu) traverseBranch(branch *branch, parent *branch) error {
 		externalField := l.registry[v.externalTable].fieldDatabase[v.externalField]
 		externalTable := l.registry[v.externalTable].tableName
 		if v.parent {
-			if l.tree.as == v.externalTable {
-				externalField = fmt.Sprintf(`%s`, v.externalField)
-				externalTable = v.externalTable
+			if !l.tree.anonymous {
+				if l.tree.as == v.externalTable {
+					externalField = fmt.Sprintf(`%s`, v.externalField)
+					externalTable = v.externalTable
+				}
 			}
 		} else {
 			externalTable = v.externalTable
@@ -218,7 +362,9 @@ func (l *Liqu) traverseBranch(branch *branch, parent *branch) error {
 
 	if branch.isSearched {
 		branch.joinDirection = InnerJoin
-		setParentJoinDirection(parent)
+		if !l.tree.anonymous {
+			setParentJoinDirection(parent)
+		}
 	}
 
 	if cte, ok := l.linkedCte[branch.as]; ok {

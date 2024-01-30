@@ -21,6 +21,7 @@ type (
 		branches         []*branch
 		relations        []branchRelation
 		selectedFields   []string
+		aggregateFields  []aggregateField
 		distinctFields   map[string]bool
 		referencedFields map[string]bool
 		subQuery         map[string]*SubQuery
@@ -36,6 +37,12 @@ type (
 		as    string
 		cte   bool
 		slice bool
+	}
+
+	aggregateField struct {
+		Func  Aggregator
+		Field string
+		Alias string
 	}
 
 	branchRelation struct {

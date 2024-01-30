@@ -6,6 +6,16 @@ import (
 	"strings"
 )
 
+type Aggregator string
+
+const (
+	AggCount Aggregator = "COUNT"
+	AggSum   Aggregator = "SUM"
+	AggAvg   Aggregator = "AVG"
+	AggMin   Aggregator = "MIN"
+	AggMax   Aggregator = "MAX"
+)
+
 func (l *Liqu) parseSelect(query string, reset bool) error {
 	if strings.TrimSpace(query) == "" {
 		return nil
@@ -41,8 +51,11 @@ func (l *Liqu) selectsAsStruct(branch *branch) []string {
 	var out []string
 
 	for _, field := range branch.selectedFields {
-		out = append(out, fmt.Sprintf(`"%s"."%s"`, branch.name, field))
-		branch.groupBy.GroupBy(fmt.Sprintf(`"%s"."%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field]))
+		out = append(out, fmt.Sprintf(`"%s"."%s" AS "%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field], field))
+
+		if len(branch.aggregateFields) > 0 {
+			branch.groupBy.GroupBy(fmt.Sprintf(`"%s"."%s"`, branch.source.Table(), l.registry[branch.as].fieldDatabase[field]))
+		}
 	}
 
 	return out
@@ -124,4 +137,36 @@ func (l *Liqu) processSelect(model, field string) {
 	} else {
 		l.registry[model].branch.selectedFields = appendUnique(l.registry[model].branch.selectedFields, field)
 	}
+}
+
+func (l *Liqu) aggregateWithStructAlias(branch *branch) []string {
+	var out []string
+
+	for _, field := range branch.aggregateFields {
+		out = append(out, fmt.Sprintf(`%s("%s"."%s") AS "%s"`, field.Func, branch.source.Table(), l.registry[branch.as].fieldDatabase[field.Field], field.Alias))
+	}
+
+	return out
+}
+
+func (l *Liqu) aggregateWithAlias(branch *branch) []string {
+	var out []string
+
+	for _, field := range branch.aggregateFields {
+		if branch.as == l.tree.as && l.tree.anonymous {
+			out = append(out, fmt.Sprintf(`%s("%s"."%s") AS "%s"`, field.Func, branch.source.Table(), l.registry[branch.as].fieldDatabase[field.Field], field.Alias))
+		} else {
+			out = append(out, fmt.Sprintf(`%s("%s"."%s") AS "%s"`, field.Func, branch.as, field.Field, field.Alias))
+		}
+	}
+
+	return out
+}
+
+func (l *Liqu) processSelectAggregate(model, field, alias string, funC Aggregator) {
+	l.registry[model].branch.aggregateFields = append(l.registry[model].branch.aggregateFields, aggregateField{
+		Func:  funC,
+		Field: field,
+		Alias: alias,
+	})
 }

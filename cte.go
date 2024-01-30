@@ -43,9 +43,10 @@ func (l *Liqu) WithCte(as string, cte *Cte) *Liqu {
 		fieldDatabase: cte.fieldDatabase,
 		tableName:     cte.baseTable,
 		branch: &branch{
-			isCTE:          true,
-			selectedFields: make([]string, 0),
-			where:          cte.conditions,
+			isCTE:           true,
+			selectedFields:  make([]string, 0),
+			aggregateFields: make([]aggregateField, 0),
+			where:           cte.conditions,
 		},
 	}
 
@@ -246,6 +247,8 @@ func (cte *Cte) scan(sourceType reflect.Type, parent *branch) error {
 					var (
 						leftTable, leftField, operator, rightTable, rightField = match[1], match[2], match[3], match[4], match[5]
 					)
+
+					Debug(leftTable, leftField, operator, rightTable, rightField)
 
 					condition := fmt.Sprintf("%s.%s %s %s.%s", leftTable, leftField, operator, rightTable, rightField)
 
