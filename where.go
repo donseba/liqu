@@ -106,6 +106,10 @@ func (cb *ConditionBuilder) Condition(op Operator, value interface{}) *Condition
 		return cb.multiValueCondition(cb.column, op, values)
 	} else if op.IsIn() {
 		return cb.multiValueCondition(cb.column, op, []interface{}{value})
+	} else if op == IsNull || op == IsNotNull {
+		condition = fmt.Sprintf("%s %s", cb.column, op)
+		cb.conditions = append(cb.conditions, condition)
+		return cb
 	}
 
 	if value == nil {
